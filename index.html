@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Finans Koçu - Yapay zekâ destekli kişisel bütçe ve harcama analiz uygulaması">
+<title>Finans Koçu</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark">₺</div><div><b>Finans Koçu</b><span>Akıllı bütçe yönetimi</span></div></div>
+    <nav>
+      <button class="nav active" data-view="dashboard">⌂ <span>Genel Bakış</span></button>
+      <button class="nav" data-view="transactions">↕ <span>Hareketler</span></button>
+      <button class="nav" data-view="budget">◫ <span>Bütçe</span></button>
+      <button class="nav" data-view="ai">✦ <span>AI Koç</span></button>
+      <button class="nav" data-view="receipt">▣ <span>Fiş Tara</span></button>
+    </nav>
+    <div class="pro-card"><div class="spark">✦</div><b>Finans Koçu Pro</b><p>Gelişmiş AI analizleri ve sınırsız fiş tarama.</p><button onclick="showPro()">Pro'yu Keşfet</button></div>
+    <div class="side-foot">v1.0 • Gizliliğin önceliğimiz<br><button class="text-btn" onclick="signOut()">Çıkış yap</button></div>
+  </aside>
+
+  <main>
+    <header class="topbar">
+      <button class="mobile-menu" onclick="toggleSide()">☰</button>
+      <div><p class="eyebrow">Kişisel finans</p><h1 id="pageTitle">Genel Bakış</h1></div>
+      <div class="top-actions"><button class="icon-btn" onclick="notify('Bildirimler yakında burada.')">♧</button><div class="avatar">E</div></div>
+    </header>
+
+    <section id="dashboard" class="view active-view">
+      <div class="hero">
+        <div><span class="muted">Bu ay kullanılabilir bütçe</span><div class="balance" id="available">₺0</div><span id="balanceHint" class="positive">Harcamalarını kontrol altında tutuyorsun.</span></div>
+        <button class="primary" onclick="openModal()">＋ Harcama Ekle</button>
+      </div>
+      <div class="grid stats">
+        <div class="card stat"><span>Gelir</span><strong id="income">₺0</strong><small class="positive">Bu ay</small></div>
+        <div class="card stat"><span>Gider</span><strong id="expense">₺0</strong><small>Bu ay</small></div>
+        <div class="card stat"><span>Birikim</span><strong id="saving">₺0</strong><small id="savingRate">0% tasarruf</small></div>
+        <div class="card stat"><span>Hedef</span><strong id="goal">₺10.000</strong><small id="goalRate">0% tamamlandı</small></div>
+      </div>
+      <div class="grid main-grid">
+        <div class="card chart-card"><div class="section-head"><div><h2>Harcama dağılımı</h2><span>Bu ay kategorilere göre</span></div><select id="monthSelect"><option>Ekim 2026</option><option>Eylül 2026</option></select></div><div class="donut-wrap"><canvas id="donut"></canvas><div id="donutCenter"></div></div><div id="legend" class="legend"></div></div>
+        <div class="card insight"><div class="ai-title"><span class="ai-badge">✦ AI</span><span>Finansal içgörü</span></div><h2 id="insightTitle">Harcamalarını analiz ediyorum...</h2><p id="insightText"></p><button class="text-btn" onclick="switchView('ai')">Detaylı AI analizine git →</button></div>
+      </div>
+      <div class="card"><div class="section-head"><div><h2>Son hareketler</h2><span>En son işlemlerin</span></div><button class="text-btn" onclick="switchView('transactions')">Tümünü gör →</button></div><div id="recent"></div></div>
+    </section>
+
+    <section id="transactions" class="view">
+      <div class="page-actions"><div><p class="muted">Gelir ve giderlerin</p><h2>Hareketler</h2></div><button class="primary" onclick="openModal()">＋ İşlem Ekle</button></div>
+      <div class="card"><div class="filters"><input id="search" placeholder="🔎 İşlem ara..." oninput="renderTransactions()"><select id="filter" onchange="renderTransactions()"><option value="all">Tümü</option><option value="expense">Gider</option><option value="income">Gelir</option></select></div><div id="allTransactions"></div></div>
+    </section>
+
+    <section id="budget" class="view">
+      <div class="page-actions"><div><p class="muted">Aylık planın</p><h2>Bütçe</h2></div><button class="primary" onclick="openIncomeModal()">＋ Gelir Ekle</button></div>
+      <div class="grid budget-grid"><div class="card"><span class="muted">Aylık gelir</span><strong class="big" id="budgetIncome">₺0</strong><p class="muted">Bütçe hesabının temeli</p></div><div class="card"><span class="muted">Planlanan harcama</span><strong class="big" id="budgetExpense">₺0</strong><p class="muted">Gerçekleşen giderler</p></div><div class="card"><span class="muted">Kalan</span><strong class="big" id="budgetLeft">₺0</strong><p id="budgetStatus"></p></div></div>
+      <div class="card"><div class="section-head"><div><h2>Kategori bütçeleri</h2><span>Harcama limitlerini takip et</span></div></div><div id="budgetBars"></div></div>
+    </section>
+
+    <section id="ai" class="view">
+      <div class="ai-hero"><div class="ai-badge large">✦ AI FINANS KOÇU</div><h2>Paran hakkında istediğini sor.</h2><p>Harcama alışkanlıklarını analiz eder, tasarruf fırsatlarını bulur ve sana uygulanabilir öneriler verir.</p></div>
+      <div class="card chat"><div id="chatMessages"><div class="bubble bot">Merhaba! 👋 Harcamalarını inceledim. Bana <b>“Bu ay param neden yetmedi?”</b> veya <b>“5.000 TL nasıl tasarruf ederim?”</b> gibi bir soru sorabilirsin.</div></div><div class="quick"><button onclick="askAI('Bu ay param neden yetmedi?')">Bu ay param neden yetmedi?</button><button onclick="askAI('Nasıl 5.000 TL tasarruf ederim?')">5.000 TL nasıl tasarruf ederim?</button><button onclick="askAI('En çok neye para harcıyorum?')">En çok neye para harcıyorum?</button></div><div class="chat-input"><input id="aiInput" placeholder="Finans Koçuna bir şey sor..." onkeydown="if(event.key==='Enter')sendAI()"><button onclick="sendAI()">Gönder</button></div></div>
+    </section>
+
+    <section id="receipt" class="view">
+      <div class="ai-hero"><div class="ai-badge large">▣ FİŞ TARA</div><h2>Fişini yükle, harcamayı kaydedelim.</h2><p>Demo sürümünde görseli seçtiğinde fiş okuma ekranını göreceksin. Gerçek OCR/API bağlantısı sonraki entegrasyon adımıdır.</p></div>
+      <div class="card upload" onclick="document.getElementById('receiptFile').click()"><div class="upload-icon">＋</div><h3>Fiş fotoğrafını seç</h3><p>PNG, JPG veya WEBP</p><input id="receiptFile" type="file" accept="image/*" hidden onchange="receiptSelected(this)"><button class="secondary">Fotoğraf Seç</button><div id="receiptResult"></div></div>
+    </section>
+  </main>
+</div>
+
+<div id="modal" class="modal"><div class="modal-box"><button class="close" onclick="closeModal()">×</button><h2>Harcama ekle</h2><label>Açıklama<input id="mDesc" placeholder="Örn. Market"></label><label>Tutar (₺)<input id="mAmount" type="number" placeholder="250"></label><label>Kategori<select id="mCat"></select></label><label>Tarih<input id="mDate" type="date"></label><button class="primary full" onclick="addExpense()">Kaydet</button></div></div>
+<div id="incomeModal" class="modal"><div class="modal-box"><button class="close" onclick="closeIncomeModal()">×</button><h2>Gelir ekle</h2><label>Açıklama<input id="iDesc" placeholder="Örn. Maaş"></label><label>Tutar (₺)<input id="iAmount" type="number" placeholder="35000"></label><button class="primary full" onclick="addIncome()">Kaydet</button></div></div>
+<div id="authModal" class="modal show"><div class="modal-box auth-box"><div class="ai-badge">✦ FİNANS KOÇU</div><h2 id="authTitle">Finans Koçu'na giriş yap</h2><p class="muted">Harcama verilerin hesabına özel ve güvenli şekilde saklanır.</p><input type="hidden" id="authMode" value="login"><div id="authNameWrap" style="display:none"><label>Ad Soyad<input id="authName" placeholder="Emre"></label></div><label>E-posta<input id="authEmail" type="email" placeholder="ornek@mail.com"></label><label>Şifre<input id="authPassword" type="password" placeholder="En az 6 karakter"></label><button id="authSubmit" class="primary full" onclick="authSubmit()">Giriş Yap</button><button id="authToggle" class="text-btn auth-toggle" onclick="toggleAuthMode()">Hesabın yok mu? Kayıt ol</button></div></div><div id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
