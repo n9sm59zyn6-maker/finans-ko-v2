@@ -1,231 +1,132 @@
-const SUPABASE_URL="https://aludzquzksppncjncklhn.supabase.co";
-const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsdWR6cXV6a3NwbmNqbmNrbGhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0MDQxMjQsImV4cCI6MjEwNjk4MDEyNH0.6miEkb9_hxo17cRL6rpFaDUCP_BgEPzq1RkYPLPAwW0";
+const SUPABASE_URL = "https://aludzquzksppncjncklhn.supabase.co";
 
-const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsdWR6cXV6a3NwbmNqbmNrbGhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0MDQxMjQsImV4cCI6MjEwNjk4MDEyNH0.6miEkb9_hxo17cRL6rpFaDUCP_BgEPzq1RkYPLPAwW0";
 
-const cats=[
-"Yemek & İçme","Market","Ulaşım","Alışveriş",
-"Faturalar","Eğlence","Sağlık","Diğer"
+const sb = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
+
+
+/* =========================
+   AYARLAR
+========================= */
+
+const cats = [
+  "Yemek & İçme",
+  "Market",
+  "Ulaşım",
+  "Alışveriş",
+  "Faturalar",
+  "Eğlence",
+  "Sağlık",
+  "Diğer"
 ];
 
-const icons={
-"Yemek & İçme":"🍔",
-"Market":"🛒",
-"Ulaşım":"🚗",
-"Alışveriş":"🛍️",
-"Faturalar":"💡",
-"Eğlence":"🎮",
-"Sağlık":"💊",
-"Diğer":"📦",
-"Gelir":"💰"
+const icons = {
+  "Yemek & İçme": "🍔",
+  "Market": "🛒",
+  "Ulaşım": "🚗",
+  "Alışveriş": "🛍️",
+  "Faturalar": "💡",
+  "Eğlence": "🎮",
+  "Sağlık": "💊",
+  "Diğer": "📦",
+  "Gelir": "💰"
 };
 
-const colors=[
-"#635bff","#12b76a","#f79009","#f04438",
-"#7a5af8","#06aed4","#ec4a0a","#98a2b3"
+const colors = [
+  "#635bff",
+  "#12b76a",
+  "#f79009",
+  "#f04438",
+  "#7a5af8",
+  "#06aed4",
+  "#ec4a0c",
+  "#98a2b3"
 ];
 
-let data={
-income:[],
-transactions:[],
-goal:10000
+let data = {
+  transactions: [],
+  goal: 10000
 };
 
-let currentUser=null;
-let authBusy=false;
-let initialized=false;
+let currentUser = null;
+let authBusy = false;
 
 
 /* =========================
-   YARDIMCI
+   GENEL YARDIMCILAR
 ========================= */
 
-function money(n){
-return new Intl.NumberFormat("tr-TR",{
-style:"currency",
-currency:"TRY",
-maximumFractionDigits:0
-}).format(Number(n)||0);
-}
-
-function setText(id,value){
-const el=document.getElementById(id);
-if(el)el.textContent=value;
-}
-
-function esc(s){
-return String(s??"").replace(/[&<>"']/g,m=>({
-"&":"&amp;",
-"<":"&lt;",
-">":"&gt;",
-'"':"&quot;",
-"'":"&#039;"
-}[m]));
-}
-
-function totals(){
-const income=data.transactions
-.filter(x=>x.type==="income")
-.reduce((a,x)=>a+Number(x.amount),0);
-
-const expense=data.transactions
-.filter(x=>x.type==="expense")
-.reduce((a,x)=>a+Number(x.amount),0);
-
-return{
-income,
-expense,
-saving:income-expense
-};
+function money(n) {
+  return new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency: "TRY",
+    maximumFractionDigits: 0
+  }).format(Number(n) || 0);
 }
 
 
-/* =========================
-   AUTH MESAJ
-========================= */
+function setText(id, value) {
+  const el = document.getElementById(id);
 
-function authMessage(message,type="error"){
-
-let box=document.getElementById("authMessage");
-
-if(!box){
-const parent=document.querySelector(".auth-box");
-if(!parent)return;
-
-box=document.createElement("div");
-box.id="authMessage";
-
-box.style.cssText=
-"margin-top:12px;padding:11px 12px;border-radius:10px;font-size:13px;line-height:1.45;display:none;";
-
-const toggle=document.getElementById("authToggle");
-
-if(toggle)parent.insertBefore(box,toggle);
-else parent.appendChild(box);
+  if (el) {
+    el.textContent = value;
+  }
 }
 
-box.textContent=message||"";
-box.style.display=message?"block":"none";
 
-box.style.background=
-type==="success"?"#ecfdf3":"#fef3f2";
-
-box.style.color=
-type==="success"?"#027a48":"#b42318";
-
-box.style.border=
-type==="success"
-?"1px solid #abefc6"
-:"1px solid #fecdca";
+function esc(value) {
+  return String(value ?? "").replace(
+    /[&<>"']/g,
+    char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    }[char])
+  );
 }
 
-function clearAuthMessage(){
-authMessage("");
+
+function notify(message) {
+  const toast = document.getElementById("toast");
+
+  if (!toast) {
+    alert(message);
+    return;
+  }
+
+  toast.textContent = message;
+  toast.classList.add("show");
+
+  setTimeout(() => {
+    toast.classList.remove("show");
+  }, 3000);
 }
 
 
 /* =========================
-   BAŞLAT
+   TOPLAMLAR
 ========================= */
 
-async function init(){
+function totals() {
+  const income = data.transactions
+    .filter(x => x.type === "income")
+    .reduce((sum, x) => sum + Number(x.amount || 0), 0);
 
-document.querySelectorAll(".nav").forEach(btn=>{
-btn.onclick=()=>switchView(btn.dataset.view);
-});
+  const expense = data.transactions
+    .filter(x => x.type === "expense")
+    .reduce((sum, x) => sum + Number(x.amount || 0), 0);
 
-const cat=document.getElementById("mCat");
-
-if(cat){
-cat.innerHTML=cats.map(x=>`<option>${x}</option>`).join("");
-}
-
-const date=document.getElementById("mDate");
-
-if(date){
-date.value=new Date().toISOString().slice(0,10);
-}
-
-try{
-
-const result=await sb.auth.getSession();
-
-if(result.error){
-console.error(result.error);
-currentUser=null;
-showAuth();
-}else if(result.data?.session?.user){
-
-currentUser=result.data.session.user;
-
-await loadData();
-
-showApp();
-
-}else{
-
-currentUser=null;
-showAuth();
-
-}
-
-}catch(error){
-
-console.error("INIT ERROR:",error);
-currentUser=null;
-showAuth();
-
-}finally{
-
-initialized=true;
-
-}
-
-
-/*
-  BURASI ÖNEMLİ.
-  onAuthStateChange içerisinde await kullanmıyoruz.
-*/
-
-sb.auth.onAuthStateChange((event,session)=>{
-
-console.log("AUTH EVENT:",event);
-
-if(session?.user){
-
-currentUser=session.user;
-
-if(
-event==="SIGNED_IN"||
-event==="INITIAL_SESSION"||
-event==="TOKEN_REFRESHED"
-){
-
-Promise.resolve(loadData())
-.catch(error=>{
-console.error("LOAD DATA ERROR:",error);
-})
-.finally(()=>{
-showApp();
-});
-
-}
-
-}else if(
-event==="SIGNED_OUT"||
-event==="INITIAL_SESSION"
-){
-
-currentUser=null;
-
-if(initialized){
-showAuth();
-}
-
-}
-
-});
-
+  return {
+    income,
+    expense,
+    saving: income - expense
+  };
 }
 
 
@@ -233,27 +134,190 @@ showAuth();
    AUTH EKRANI
 ========================= */
 
-function showAuth(){
+function showAuth() {
+  const modal = document.getElementById("authModal");
+  const main = document.querySelector("main");
 
-const modal=document.getElementById("authModal");
-const main=document.querySelector("main");
+  if (modal) {
+    modal.classList.add("show");
+  }
 
-if(modal)modal.classList.add("show");
-
-if(main)main.style.filter="blur(4px)";
-
+  if (main) {
+    main.style.filter = "blur(4px)";
+  }
 }
 
-function showApp(){
 
-const modal=document.getElementById("authModal");
-const main=document.querySelector("main");
+function showApp() {
+  const modal = document.getElementById("authModal");
+  const main = document.querySelector("main");
 
-if(modal)modal.classList.remove("show");
+  if (modal) {
+    modal.classList.remove("show");
+  }
 
-if(main)main.style.filter="none";
+  if (main) {
+    main.style.filter = "none";
+  }
 
-renderAll();
+  renderAll();
+}
+
+
+/* =========================
+   BAŞLAT
+========================= */
+
+async function init() {
+
+  console.log("Finans Koçu başlatılıyor...");
+
+  /* Kategoriler */
+
+  const categorySelect =
+    document.getElementById("mCat");
+
+  if (categorySelect) {
+    categorySelect.innerHTML = cats
+      .map(category =>
+        `<option value="${esc(category)}">${esc(category)}</option>`
+      )
+      .join("");
+  }
+
+
+  /* Tarih */
+
+  const dateInput =
+    document.getElementById("mDate");
+
+  if (dateInput) {
+    const today =
+      new Date().toISOString().slice(0, 10);
+
+    dateInput.value = today;
+  }
+
+
+  /* Menü */
+
+  document
+    .querySelectorAll(".nav")
+    .forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () => {
+          switchView(button.dataset.view);
+        }
+      );
+
+    });
+
+
+  /* Supabase session */
+
+  try {
+
+    const result =
+      await sb.auth.getSession();
+
+    console.log(
+      "SESSION:",
+      result
+    );
+
+    if (result.error) {
+
+      console.error(
+        "SESSION ERROR:",
+        result.error
+      );
+
+      showAuth();
+      return;
+    }
+
+    const session =
+      result.data?.session;
+
+    if (session?.user) {
+
+      currentUser =
+        session.user;
+
+      console.log(
+        "Kullanıcı bulundu:",
+        currentUser.email
+      );
+
+      await loadData();
+
+      showApp();
+
+    } else {
+
+      console.log(
+        "Aktif kullanıcı yok."
+      );
+
+      showAuth();
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      "INIT ERROR:",
+      error
+    );
+
+    showAuth();
+  }
+
+
+  /* Auth değişikliklerini dinle */
+
+  sb.auth.onAuthStateChange(
+    async (event, session) => {
+
+      console.log(
+        "AUTH EVENT:",
+        event
+      );
+
+      if (
+        event === "INITIAL_SESSION"
+      ) {
+        return;
+      }
+
+      if (session?.user) {
+
+        currentUser =
+          session.user;
+
+        try {
+          await loadData();
+        } catch (error) {
+          console.error(
+            "AUTH LOAD ERROR:",
+            error
+          );
+        }
+
+        showApp();
+
+      } else {
+
+        currentUser = null;
+
+        showAuth();
+
+      }
+
+    }
+  );
 
 }
 
@@ -262,107 +326,168 @@ renderAll();
    VERİLERİ YÜKLE
 ========================= */
 
-async function loadData(){
+async function loadData() {
 
-if(!currentUser)return;
+  if (!currentUser) {
+    return;
+  }
 
-const [
-transactionsResult,
-goalsResult
-]=await Promise.all([
-
-sb
-.from("transactions")
-.select(
-"id,type,description,amount,category,transaction_date,created_at"
-)
-.eq("user_id",currentUser.id)
-.order("transaction_date",{ascending:false}),
-
-sb
-.from("goals")
-.select(
-"id,target_amount,current_amount,created_at"
-)
-.eq("user_id",currentUser.id)
-.order("created_at",{ascending:true})
-.limit(1)
-
-]);
-
-if(transactionsResult.error){
-
-console.error(
-"TRANSACTIONS ERROR:",
-transactionsResult.error
-);
-
-data.transactions=[];
-
-}else{
-
-data.transactions=(transactionsResult.data||[]).map(x=>({
-
-id:x.id,
-type:x.type,
-desc:x.description,
-amount:Number(x.amount),
-cat:x.category,
-date:x.transaction_date
-
-}));
-
-}
+  console.log(
+    "Veriler yükleniyor..."
+  );
 
 
-if(goalsResult.error){
+  try {
 
-console.error(
-"GOALS ERROR:",
-goalsResult.error
-);
-
-data.goal=10000;
-
-}else{
-
-const goal=goalsResult.data?.[0];
-
-data.goal=goal
-?Number(goal.target_amount)
-:10000;
-
-if(!goal){
-
-const {error}=await sb
-.from("goals")
-.insert({
-user_id:currentUser.id,
-name:"Aylık tasarruf hedefi",
-target_amount:10000,
-current_amount:0
-});
-
-if(error){
-console.error("GOAL CREATE ERROR:",error);
-}
-
-}
-
-}
+    const transactionsResponse =
+      await sb
+        .from("transactions")
+        .select(
+          "id,type,description,amount,category,transaction_date,created_at"
+        )
+        .eq(
+          "user_id",
+          currentUser.id
+        )
+        .order(
+          "transaction_date",
+          {
+            ascending: false
+          }
+        );
 
 
-const name=
-currentUser.user_metadata?.full_name||
-currentUser.email?.split("@")[0]||
-"Kullanıcı";
+    if (transactionsResponse.error) {
 
-const avatar=document.querySelector(".avatar");
+      console.error(
+        "TRANSACTIONS ERROR:",
+        transactionsResponse.error
+      );
 
-if(avatar){
-avatar.textContent=
-name.slice(0,1).toUpperCase();
-}
+      /*
+       * Tablo/RLS sorunu olsa bile
+       * uygulamayı tamamen kilitlemiyoruz.
+       */
+
+      data.transactions = [];
+
+    } else {
+
+      data.transactions =
+        (transactionsResponse.data || [])
+          .map(row => ({
+            id: row.id,
+            type: row.type,
+            desc: row.description,
+            amount: Number(row.amount || 0),
+            cat: row.category,
+            date: row.transaction_date
+          }));
+
+    }
+
+
+    /* Hedef */
+
+    const goalsResponse =
+      await sb
+        .from("goals")
+        .select(
+          "id,target_amount,current_amount,created_at"
+        )
+        .eq(
+          "user_id",
+          currentUser.id
+        )
+        .order(
+          "created_at",
+          {
+            ascending: true
+          }
+        )
+        .limit(1);
+
+
+    if (goalsResponse.error) {
+
+      console.error(
+        "GOALS ERROR:",
+        goalsResponse.error
+      );
+
+      data.goal = 10000;
+
+    } else {
+
+      const goal =
+        goalsResponse.data?.[0];
+
+      if (goal) {
+
+        data.goal =
+          Number(
+            goal.target_amount || 10000
+          );
+
+      } else {
+
+        data.goal = 10000;
+
+        const createGoal =
+          await sb
+            .from("goals")
+            .insert({
+              user_id: currentUser.id,
+              name: "Aylık tasarruf hedefi",
+              target_amount: 10000,
+              current_amount: 0
+            });
+
+        if (createGoal.error) {
+
+          console.error(
+            "GOAL CREATE ERROR:",
+            createGoal.error
+          );
+
+        }
+
+      }
+
+    }
+
+
+    /* Avatar */
+
+    const name =
+      currentUser.user_metadata?.full_name ||
+      currentUser.email?.split("@")[0] ||
+      "Kullanıcı";
+
+    const avatar =
+      document.querySelector(".avatar");
+
+    if (avatar) {
+      avatar.textContent =
+        name
+          .charAt(0)
+          .toUpperCase();
+    }
+
+    console.log(
+      "Veriler başarıyla yüklendi."
+    );
+
+  } catch (error) {
+
+    console.error(
+      "LOAD DATA EXCEPTION:",
+      error
+    );
+
+    data.transactions = [];
+    data.goal = 10000;
+  }
 
 }
 
@@ -371,50 +496,95 @@ name.slice(0,1).toUpperCase();
    DASHBOARD
 ========================= */
 
-function renderAll(){
+function renderAll() {
 
-const t=totals();
+  const t = totals();
 
-setText("available",money(t.saving));
-setText("income",money(t.income));
-setText("expense",money(t.expense));
-setText("saving",money(t.saving));
+  setText(
+    "available",
+    money(t.saving)
+  );
 
-setText(
-"savingRate",
-(t.income?
-Math.round((t.saving/t.income)*100):0)+
-"% tasarruf"
-);
+  setText(
+    "income",
+    money(t.income)
+  );
 
-setText("goal",money(data.goal));
+  setText(
+    "expense",
+    money(t.expense)
+  );
 
-const goalRate=data.goal?
-Math.round((t.saving/data.goal)*100):0;
+  setText(
+    "saving",
+    money(t.saving)
+  );
 
-setText(
-"goalRate",
-Math.min(100,Math.max(0,goalRate))+
-"% tamamlandı"
-);
 
-setText("budgetIncome",money(t.income));
-setText("budgetExpense",money(t.expense));
-setText("budgetLeft",money(t.saving));
+  const savingRate =
+    t.income > 0
+      ? Math.round(
+          (t.saving / t.income) * 100
+        )
+      : 0;
 
-setText(
-"budgetStatus",
-t.saving>=data.goal
-?"🎯 Aylık hedefindesin."
-:"Hedefe yaklaşmak için harcamalarını azaltabilirsin."
-);
+  setText(
+    "savingRate",
+    savingRate + "% tasarruf"
+  );
 
-drawDonut();
-renderRecent();
-renderTransactions();
-renderBudget();
-renderInsight();
 
+  setText(
+    "goal",
+    money(data.goal)
+  );
+
+
+  const goalRate =
+    data.goal > 0
+      ? Math.round(
+          (t.saving / data.goal) * 100
+        )
+      : 0;
+
+  setText(
+    "goalRate",
+    Math.min(
+      100,
+      Math.max(0, goalRate)
+    ) + "% tamamlandı"
+  );
+
+
+  setText(
+    "budgetIncome",
+    money(t.income)
+  );
+
+  setText(
+    "budgetExpense",
+    money(t.expense)
+  );
+
+  setText(
+    "budgetLeft",
+    money(t.saving)
+  );
+
+
+  setText(
+    "budgetStatus",
+    t.saving >= data.goal
+      ? "🎯 Aylık hedefindesin."
+      : "Hedefe yaklaşmak için harcamalarını azaltabilirsin."
+  );
+
+
+  drawDonut();
+  renderRecent();
+  renderTransactions();
+  renderBudget();
+  renderInsight();
 }
 
 
@@ -422,97 +592,170 @@ renderInsight();
    DONUT
 ========================= */
 
-function drawDonut(){
+function drawDonut() {
 
-const canvas=document.getElementById("donut");
+  const canvas =
+    document.getElementById("donut");
 
-if(!canvas)return;
+  if (!canvas) {
+    return;
+  }
 
-const ctx=canvas.getContext("2d");
-const d=window.devicePixelRatio||1;
+  const ctx =
+    canvas.getContext("2d");
 
-canvas.width=190*d;
-canvas.height=190*d;
+  const ratio =
+    window.devicePixelRatio || 1;
 
-ctx.setTransform(d,0,0,d,0,0);
+  canvas.width =
+    190 * ratio;
 
-const sums={};
+  canvas.height =
+    190 * ratio;
 
-data.transactions
-.filter(x=>x.type==="expense")
-.forEach(x=>{
-sums[x.cat]=(sums[x.cat]||0)+Number(x.amount);
-});
+  ctx.setTransform(
+    ratio,
+    0,
+    0,
+    ratio,
+    0,
+    0
+  );
 
-const arr=Object.entries(sums)
-.sort((a,b)=>b[1]-a[1]);
+  ctx.clearRect(
+    0,
+    0,
+    190,
+    190
+  );
 
-const total=arr.reduce((a,x)=>a+x[1],0);
 
-let start=-Math.PI/2;
+  const sums = {};
 
-ctx.clearRect(0,0,190,190);
-ctx.lineWidth=24;
+  data.transactions
+    .filter(
+      x => x.type === "expense"
+    )
+    .forEach(x => {
 
-if(total){
+      sums[x.cat] =
+        (sums[x.cat] || 0) +
+        Number(x.amount || 0);
 
-arr.forEach(([cat,value],i)=>{
+    });
 
-const end=start+(value/total)*Math.PI*2;
 
-ctx.strokeStyle=colors[i%colors.length];
+  const arr =
+    Object.entries(sums)
+      .sort(
+        (a, b) => b[1] - a[1]
+      );
 
-ctx.beginPath();
 
-ctx.arc(
-95,
-95,
-65,
-start,
-end-.03
-);
+  const total =
+    arr.reduce(
+      (sum, item) =>
+        sum + item[1],
+      0
+    );
 
-ctx.stroke();
 
-start=end;
+  let start =
+    -Math.PI / 2;
 
-});
+  ctx.lineWidth = 24;
 
-}
 
-const center=document.getElementById("donutCenter");
+  if (total > 0) {
 
-if(center){
+    arr.forEach(
+      ([category, value], index) => {
 
-center.innerHTML=`
-<div>
-<span>${money(total)}</span>
-<small style="
-display:block;
-color:#667085;
-font-size:10px
-">Toplam gider</small>
-</div>
-`;
+        const end =
+          start +
+          (value / total) *
+          Math.PI *
+          2;
 
-}
+        ctx.strokeStyle =
+          colors[
+            index %
+            colors.length
+          ];
 
-const legend=document.getElementById("legend");
+        ctx.beginPath();
 
-if(legend){
+        ctx.arc(
+          95,
+          95,
+          65,
+          start,
+          end - 0.03
+        );
 
-legend.innerHTML=arr.length
-?arr.map(([category,value],i)=>`
-<span class="legend-item">
-<i class="dot"
-style="background:${colors[i%colors.length]}"></i>
-${esc(category)}
-${money(value)}
-</span>
-`).join("")
-:"<span class='muted'>Henüz gider yok.</span>";
+        ctx.stroke();
 
-}
+        start = end;
+      }
+    );
+
+  }
+
+
+  const center =
+    document.getElementById(
+      "donutCenter"
+    );
+
+  if (center) {
+
+    center.innerHTML = `
+      <div>
+        <span>${money(total)}</span>
+        <small style="
+          display:block;
+          color:#667085;
+          font-size:10px;
+        ">
+          Toplam gider
+        </small>
+      </div>
+    `;
+
+  }
+
+
+  const legend =
+    document.getElementById(
+      "legend"
+    );
+
+  if (legend) {
+
+    legend.innerHTML =
+      arr.length
+        ? arr.map(
+            ([category, value], index) => `
+              <span class="legend-item">
+                <i
+                  class="dot"
+                  style="
+                    background:${
+                      colors[
+                        index %
+                        colors.length
+                      ]
+                    }
+                  "
+                ></i>
+                ${esc(category)}
+                ${money(value)}
+              </span>
+            `
+          ).join("")
+        : "<span class='muted'>Henüz gider yok.</span>";
+
+  }
 
 }
 
@@ -521,92 +764,139 @@ ${money(value)}
    HAREKETLER
 ========================= */
 
-function txHTML(x){
+function txHTML(x) {
 
-return`
-<div class="transaction">
+  return `
+    <div class="transaction">
 
-<div class="tx-left">
+      <div class="tx-left">
 
-<div class="tx-icon">
-${icons[x.type==="income"?"Gelir":x.cat]||"📦"}
-</div>
+        <div class="tx-icon">
+          ${
+            icons[
+              x.type === "income"
+                ? "Gelir"
+                : x.cat
+            ] || "📦"
+          }
+        </div>
 
-<div>
+        <div>
 
-<div class="tx-title">
-${esc(x.desc)}
-</div>
+          <div class="tx-title">
+            ${esc(x.desc)}
+          </div>
 
-<div class="tx-meta">
-${x.type==="income"?"Gelir":esc(x.cat)}
-•
-${esc(x.date)}
-</div>
+          <div class="tx-meta">
+            ${
+              x.type === "income"
+                ? "Gelir"
+                : esc(x.cat)
+            }
+            •
+            ${esc(x.date)}
+          </div>
 
-</div>
+        </div>
 
-</div>
+      </div>
 
-<div class="amount ${x.type}">
-${x.type==="income"?"+":"−"}
-${money(x.amount)}
-</div>
+      <div class="amount ${x.type}">
+        ${x.type === "income" ? "+" : "−"}
+        ${money(x.amount)}
+      </div>
 
-</div>
-`;
-
+    </div>
+  `;
 }
 
-function renderRecent(){
 
-const el=document.getElementById("recent");
+function renderRecent() {
 
-if(!el)return;
+  const element =
+    document.getElementById(
+      "recent"
+    );
 
-const transactions=[...data.transactions]
-.sort((a,b)=>String(b.date).localeCompare(String(a.date)))
-.slice(0,5);
+  if (!element) {
+    return;
+  }
 
-el.innerHTML=transactions.length
-?transactions.map(txHTML).join("")
-:"<p class='muted'>Henüz işlem bulunamadı.</p>";
+  const transactions =
+    [...data.transactions]
+      .sort(
+        (a, b) =>
+          String(b.date)
+            .localeCompare(
+              String(a.date)
+            )
+      )
+      .slice(0, 5);
 
+  element.innerHTML =
+    transactions.length
+      ? transactions
+          .map(txHTML)
+          .join("")
+      : "<p class='muted'>Henüz işlem bulunamadı.</p>";
 }
 
-function renderTransactions(){
 
-const el=document.getElementById("allTransactions");
+function renderTransactions() {
 
-if(!el)return;
+  const element =
+    document.getElementById(
+      "allTransactions"
+    );
 
-const search=
-document.getElementById("search")?.value?.toLowerCase()||"";
+  if (!element) {
+    return;
+  }
 
-const filter=
-document.getElementById("filter")?.value||"all";
 
-const transactions=data.transactions
-.filter(x=>{
+  const search =
+    document.getElementById(
+      "search"
+    )?.value
+      ?.toLowerCase() || "";
 
-const typeOK=
-filter==="all"||x.type===filter;
 
-const searchOK=
-`${x.desc} ${x.cat}`
-.toLowerCase()
-.includes(search);
+  const filter =
+    document.getElementById(
+      "filter"
+    )?.value || "all";
 
-return typeOK&&searchOK;
 
-})
-.sort((a,b)=>
-String(b.date).localeCompare(String(a.date))
-);
+  const transactions =
+    data.transactions
+      .filter(x => {
 
-el.innerHTML=transactions.length
-?transactions.map(txHTML).join("")
-:"<p class='muted'>Henüz işlem bulunamadı.</p>";
+        const typeOK =
+          filter === "all" ||
+          x.type === filter;
+
+        const searchOK =
+          `${x.desc} ${x.cat}`
+            .toLowerCase()
+            .includes(search);
+
+        return typeOK && searchOK;
+      })
+      .sort(
+        (a, b) =>
+          String(b.date)
+            .localeCompare(
+              String(a.date)
+            )
+      );
+
+
+  element.innerHTML =
+    transactions.length
+      ? transactions
+          .map(txHTML)
+          .join("")
+      : "<p class='muted'>Henüz işlem bulunamadı.</p>";
 
 }
 
@@ -615,262 +905,233 @@ el.innerHTML=transactions.length
    BÜTÇE
 ========================= */
 
-function renderBudget(){
+function renderBudget() {
 
-const el=document.getElementById("budgetBars");
+  const element =
+    document.getElementById(
+      "budgetBars"
+    );
 
-if(!el)return;
+  if (!element) {
+    return;
+  }
 
-const sums={};
 
-data.transactions
-.filter(x=>x.type==="expense")
-.forEach(x=>{
-sums[x.cat]=(sums[x.cat]||0)+Number(x.amount);
-});
+  const sums = {};
 
-const limits={
-"Yemek & İçme":5000,
-"Market":4000,
-"Ulaşım":3500,
-"Alışveriş":4000,
-"Faturalar":3000,
-"Eğlence":2000,
-"Sağlık":1500,
-"Diğer":2000
-};
+  data.transactions
+    .filter(
+      x => x.type === "expense"
+    )
+    .forEach(x => {
 
-el.innerHTML=cats.map(category=>{
+      sums[x.cat] =
+        (sums[x.cat] || 0) +
+        Number(x.amount || 0);
 
-const value=sums[category]||0;
-const limit=limits[category];
+    });
 
-const percent=Math.min(
-100,
-(value/limit)*100
-);
 
-return`
-<div class="budget-row">
+  const limits = {
+    "Yemek & İçme": 5000,
+    "Market": 4000,
+    "Ulaşım": 3500,
+    "Alışveriş": 4000,
+    "Faturalar": 3000,
+    "Eğlence": 2000,
+    "Sağlık": 1500,
+    "Diğer": 2000
+  };
 
-<div class="row-head">
 
-<span>
-${icons[category]}
-${category}
-</span>
+  element.innerHTML =
+    cats
+      .map(
+        (category, index) => {
 
-<span>
-${money(value)}
-/
-${money(limit)}
-</span>
+          const value =
+            sums[category] || 0;
 
-</div>
+          const limit =
+            limits[category] || 1000;
 
-<div class="bar">
+          const percent =
+            Math.min(
+              100,
+              (value / limit) * 100
+            );
 
-<div class="fill"
-style="width:${percent}%"></div>
 
-</div>
+          return `
+            <div class="budget-row">
 
-</div>
-`;
+              <div class="row-head">
 
-}).join("");
+                <span>
+                  ${icons[category]}
+                  ${esc(category)}
+                </span>
+
+                <span>
+                  ${money(value)}
+                  /
+                  ${money(limit)}
+                </span>
+
+              </div>
+
+              <div class="bar">
+
+                <div
+                  class="fill"
+                  style="width:${percent}%"
+                ></div>
+
+              </div>
+
+            </div>
+          `;
+        }
+      )
+      .join("");
 
 }
 
 
 /* =========================
-   AI
+   AI İÇGÖRÜ
 ========================= */
 
-function renderInsight(){
+function renderInsight() {
 
-const t=totals();
+  const title =
+    document.getElementById(
+      "insightTitle"
+    );
 
-const sums={};
+  const text =
+    document.getElementById(
+      "insightText"
+    );
 
-data.transactions
-.filter(x=>x.type==="expense")
-.forEach(x=>{
-sums[x.cat]=(sums[x.cat]||0)+Number(x.amount);
-});
+  if (!title || !text) {
+    return;
+  }
 
-const top=Object.entries(sums)
-.sort((a,b)=>b[1]-a[1])[0];
 
-const title=document.getElementById("insightTitle");
-const text=document.getElementById("insightText");
+  const t = totals();
 
-if(!title||!text)return;
+  const sums = {};
 
-if(top){
 
-title.textContent=
-`${top[0]} en büyük harcama kalemin.`;
+  data.transactions
+    .filter(
+      x => x.type === "expense"
+    )
+    .forEach(x => {
 
-text.textContent=
-`${money(top[1])} harcadın. `+
-`Gelirinin %${
-t.income?
-Math.round((top[1]/t.income)*100):0
-}'i bu kategoriye gidiyor. `+
-`Tasarruf hedefin ${money(data.goal)}.`;
+      sums[x.cat] =
+        (sums[x.cat] || 0) +
+        Number(x.amount || 0);
 
-}else{
+    });
 
-title.textContent=
-"Henüz yeterli veri yok.";
 
-text.textContent=
-"Birkaç işlem eklediğinde sana kişisel bir analiz sunacağım.";
+  const top =
+    Object.entries(sums)
+      .sort(
+        (a, b) => b[1] - a[1]
+      )[0];
 
-}
 
-}
+  if (!top) {
 
-function askAI(question){
+    title.textContent =
+      "Henüz yeterli veri yok.";
 
-const input=document.getElementById("aiInput");
+    text.textContent =
+      "Birkaç işlem eklediğinde sana kişisel bir analiz sunacağım.";
 
-if(!input)return;
+    return;
+  }
 
-input.value=question;
 
-sendAI();
+  title.textContent =
+    `${top[0]} en büyük harcama kalemin.`;
 
-}
+  const percentage =
+    t.income > 0
+      ? Math.round(
+          (top[1] / t.income) * 100
+        )
+      : 0;
 
-async function sendAI(){
-
-const input=document.getElementById("aiInput");
-const box=document.getElementById("chatMessages");
-
-if(!input||!box)return;
-
-const question=input.value.trim();
-
-if(!question)return;
-
-box.innerHTML+=`
-<div class="bubble user">
-${esc(question)}
-</div>
-`;
-
-input.value="";
-
-box.innerHTML+=`
-<div id="aiTyping" class="bubble bot">
-Analiz ediyorum…
-</div>
-`;
-
-box.scrollTop=box.scrollHeight;
-
-try{
-
-const {data:sessionData}=await sb.auth.getSession();
-
-const session=sessionData?.session;
-
-if(!session){
-
-document.getElementById("aiTyping")?.remove();
-
-box.innerHTML+=`
-<div class="bubble bot">
-AI kullanmak için giriş yapmalısın.
-</div>
-`;
-
-return;
-
-}
-
-const response=await fetch("/api/ai",{
-method:"POST",
-headers:{
-"Content-Type":"application/json",
-"Authorization":
-"Bearer "+session.access_token
-},
-body:JSON.stringify({question})
-});
-
-const result=await response.json();
-
-document.getElementById("aiTyping")?.remove();
-
-box.innerHTML+=`
-<div class="bubble bot">
-${esc(
-result.answer||
-result.error||
-"Yanıt alınamadı."
-)}
-</div>
-`;
-
-box.scrollTop=box.scrollHeight;
-
-}catch(error){
-
-console.error("AI ERROR:",error);
-
-document.getElementById("aiTyping")?.remove();
-
-box.innerHTML+=`
-<div class="bubble bot">
-AI bağlantısında bir sorun oluştu.
-</div>
-`;
-
-}
-
+  text.textContent =
+    `${money(top[1])} harcadın. ` +
+    `Gelirinin %${percentage}'i bu kategoriye gidiyor. ` +
+    `Tasarruf hedefin ${money(data.goal)}.`;
 }
 
 
 /* =========================
-   SAYFA
+   SAYFA DEĞİŞTİRME
 ========================= */
 
-function switchView(view){
+function switchView(view) {
 
-document.querySelectorAll(".view")
-.forEach(x=>x.classList.remove("active-view"));
+  document
+    .querySelectorAll(".view")
+    .forEach(el =>
+      el.classList.remove(
+        "active-view"
+      )
+    );
 
-document.getElementById(view)
-?.classList.add("active-view");
 
-document.querySelectorAll(".nav")
-.forEach(x=>{
-x.classList.toggle(
-"active",
-x.dataset.view===view
-);
-});
+  const target =
+    document.getElementById(view);
 
-const names={
-dashboard:"Genel Bakış",
-transactions:"Hareketler",
-budget:"Bütçe",
-ai:"AI Koç",
-receipt:"Fiş Tara"
-};
+  if (target) {
+    target.classList.add(
+      "active-view"
+    );
+  }
 
-setText(
-"pageTitle",
-names[view]||"Finans Koçu"
-);
 
-if(window.innerWidth<901){
-document.querySelector(".sidebar")
-?.classList.remove("open");
-}
+  document
+    .querySelectorAll(".nav")
+    .forEach(el =>
+      el.classList.toggle(
+        "active",
+        el.dataset.view === view
+      )
+    );
+
+
+  const names = {
+    dashboard: "Genel Bakış",
+    transactions: "Hareketler",
+    budget: "Bütçe",
+    ai: "AI Koç",
+    receipt: "Fiş Tara"
+  };
+
+
+  setText(
+    "pageTitle",
+    names[view] || "Finans Koçu"
+  );
+
+
+  if (window.innerWidth < 901) {
+
+    document
+      .querySelector(".sidebar")
+      ?.classList.remove(
+        "open"
+      );
+
+  }
 
 }
 
@@ -879,157 +1140,720 @@ document.querySelector(".sidebar")
    MODALLAR
 ========================= */
 
-function openModal(){
-document.getElementById("modal")
-?.classList.add("show");
-}
-
-function closeModal(){
-document.getElementById("modal")
-?.classList.remove("show");
-}
-
-function openIncomeModal(){
-document.getElementById("incomeModal")
-?.classList.add("show");
-}
-
-function closeIncomeModal(){
-document.getElementById("incomeModal")
-?.classList.remove("show");
+function openModal() {
+  document
+    .getElementById("modal")
+    ?.classList.add("show");
 }
 
 
-/* =========================
-   HARCAMA
-========================= */
-
-async function addExpense(){
-
-if(!currentUser)
-return notify("Önce giriş yapmalısın.");
-
-const desc=document.getElementById("mDesc")
-?.value?.trim();
-
-const amount=Number(
-document.getElementById("mAmount")?.value
-);
-
-const category=document.getElementById("mCat")?.value;
-const date=document.getElementById("mDate")?.value;
-
-if(!desc||!amount)
-return notify("Açıklama ve tutar gerekli.");
-
-const {data:row,error}=await sb
-.from("transactions")
-.insert({
-user_id:currentUser.id,
-type:"expense",
-description:desc,
-amount,
-category,
-transaction_date:date
-})
-.select()
-.single();
-
-if(error){
-
-console.error("EXPENSE ERROR:",error);
-
-return notify(
-"Kaydedilemedi: "+error.message
-);
-
+function closeModal() {
+  document
+    .getElementById("modal")
+    ?.classList.remove("show");
 }
 
-data.transactions.unshift({
-id:row.id,
-type:row.type,
-desc:row.description,
-amount:Number(row.amount),
-cat:row.category,
-date:row.transaction_date
-});
 
-closeModal();
+function openIncomeModal() {
+  document
+    .getElementById("incomeModal")
+    ?.classList.add("show");
+}
 
-document.getElementById("mDesc").value="";
-document.getElementById("mAmount").value="";
 
-renderAll();
-
-notify("Harcama kaydedildi ✓");
-
+function closeIncomeModal() {
+  document
+    .getElementById("incomeModal")
+    ?.classList.remove("show");
 }
 
 
 /* =========================
-   GELİR
+   HARCAMA EKLE
 ========================= */
 
-async function addIncome(){
+async function addExpense() {
 
-if(!currentUser)
-return notify("Önce giriş yapmalısın.");
+  if (!currentUser) {
+    return notify(
+      "Önce giriş yapmalısın."
+    );
+  }
 
-const desc=document.getElementById("iDesc")
-?.value?.trim();
 
-const amount=Number(
-document.getElementById("iAmount")?.value
-);
+  const desc =
+    document.getElementById(
+      "mDesc"
+    )?.value.trim();
 
-if(!desc||!amount)
-return notify("Açıklama ve tutar gerekli.");
+  const amount =
+    Number(
+      document.getElementById(
+        "mAmount"
+      )?.value
+    );
 
-const date=new Date()
-.toISOString()
-.slice(0,10);
+  const category =
+    document.getElementById(
+      "mCat"
+    )?.value;
 
-const {data:row,error}=await sb
-.from("transactions")
-.insert({
-user_id:currentUser.id,
-type:"income",
-description:desc,
-amount,
-category:"Gelir",
-transaction_date:date
-})
-.select()
-.single();
+  const date =
+    document.getElementById(
+      "mDate"
+    )?.value;
 
-if(error){
 
-console.error("INCOME ERROR:",error);
+  if (!desc || !amount) {
+    return notify(
+      "Açıklama ve tutar gerekli."
+    );
+  }
 
-return notify(
-"Kaydedilemedi: "+error.message
-);
+
+  const result =
+    await sb
+      .from("transactions")
+      .insert({
+        user_id: currentUser.id,
+        type: "expense",
+        description: desc,
+        amount: amount,
+        category: category,
+        transaction_date: date
+      })
+      .select()
+      .single();
+
+
+  if (result.error) {
+
+    console.error(
+      "EXPENSE ERROR:",
+      result.error
+    );
+
+    return notify(
+      "Kaydedilemedi: " +
+      result.error.message
+    );
+
+  }
+
+
+  data.transactions.unshift({
+    id: result.data.id,
+    type: "expense",
+    desc: result.data.description,
+    amount: Number(
+      result.data.amount
+    ),
+    cat: result.data.category,
+    date: result.data.transaction_date
+  });
+
+
+  closeModal();
+
+  document.getElementById(
+    "mDesc"
+  ).value = "";
+
+  document.getElementById(
+    "mAmount"
+  ).value = "";
+
+
+  renderAll();
+
+  notify(
+    "Harcama kaydedildi ✓"
+  );
+}
+
+
+/* =========================
+   GELİR EKLE
+========================= */
+
+async function addIncome() {
+
+  if (!currentUser) {
+    return notify(
+      "Önce giriş yapmalısın."
+    );
+  }
+
+
+  const desc =
+    document.getElementById(
+      "iDesc"
+    )?.value.trim();
+
+  const amount =
+    Number(
+      document.getElementById(
+        "iAmount"
+      )?.value
+    );
+
+
+  if (!desc || !amount) {
+    return notify(
+      "Açıklama ve tutar gerekli."
+    );
+  }
+
+
+  const date =
+    new Date()
+      .toISOString()
+      .slice(0, 10);
+
+
+  const result =
+    await sb
+      .from("transactions")
+      .insert({
+        user_id: currentUser.id,
+        type: "income",
+        description: desc,
+        amount: amount,
+        category: "Gelir",
+        transaction_date: date
+      })
+      .select()
+      .single();
+
+
+  if (result.error) {
+
+    console.error(
+      "INCOME ERROR:",
+      result.error
+    );
+
+    return notify(
+      "Kaydedilemedi: " +
+      result.error.message
+    );
+  }
+
+
+  data.transactions.unshift({
+    id: result.data.id,
+    type: "income",
+    desc: result.data.description,
+    amount: Number(
+      result.data.amount
+    ),
+    cat: "Gelir",
+    date: result.data.transaction_date
+  });
+
+
+  closeIncomeModal();
+
+  document.getElementById(
+    "iDesc"
+  ).value = "";
+
+  document.getElementById(
+    "iAmount"
+  ).value = "";
+
+
+  renderAll();
+
+  notify(
+    "Gelir kaydedildi ✓"
+  );
+}
+
+
+/* =========================
+   AUTH
+========================= */
+
+async function authSubmit() {
+
+  if (authBusy) {
+    return;
+  }
+
+  authBusy = true;
+
+
+  const email =
+    document.getElementById(
+      "authEmail"
+    )?.value.trim();
+
+  const password =
+    document.getElementById(
+      "authPassword"
+    )?.value || "";
+
+  const name =
+    document.getElementById(
+      "authName"
+    )?.value.trim() || "";
+
+  const mode =
+    document.getElementById(
+      "authMode"
+    )?.value || "login";
+
+
+  const button =
+    document.getElementById(
+      "authSubmit"
+    );
+
+
+  const oldText =
+    button?.textContent ||
+    "Giriş Yap";
+
+
+  try {
+
+    if (!email) {
+      throw new Error(
+        "E-posta adresini gir."
+      );
+    }
+
+    if (!password) {
+      throw new Error(
+        "Şifreni gir."
+      );
+    }
+
+    if (password.length < 6) {
+      throw new Error(
+        "Şifre en az 6 karakter olmalı."
+      );
+    }
+
+
+    if (button) {
+      button.disabled = true;
+      button.textContent =
+        mode === "signup"
+          ? "Hesap oluşturuluyor..."
+          : "Giriş yapılıyor...";
+    }
+
+
+    /* =====================
+       GİRİŞ
+    ===================== */
+
+    if (mode === "login") {
+
+      const result =
+        await sb.auth.signInWithPassword({
+          email,
+          password
+        });
+
+
+      if (result.error) {
+        throw result.error;
+      }
+
+
+      if (!result.data?.user) {
+        throw new Error(
+          "Giriş yapıldı fakat kullanıcı alınamadı."
+        );
+      }
+
+
+      currentUser =
+        result.data.user;
+
+
+      await loadData();
+
+      showApp();
+
+      notify(
+        "Giriş başarılı ✓"
+      );
+
+      return;
+    }
+
+
+    /* =====================
+       KAYIT
+    ===================== */
+
+    const signup =
+      await sb.auth.signUp({
+
+        email,
+
+        password,
+
+        options: {
+          data: {
+            full_name:
+              name ||
+              email.split("@")[0]
+          }
+        }
+
+      });
+
+
+    console.log(
+      "SIGNUP RESULT:",
+      signup
+    );
+
+
+    if (signup.error) {
+      throw signup.error;
+    }
+
+
+    const user =
+      signup.data?.user;
+
+    let session =
+      signup.data?.session;
+
+
+    if (!user) {
+      throw new Error(
+        "Hesap oluşturulamadı."
+      );
+    }
+
+
+    /*
+     * E-posta doğrulaması kapalıysa
+     * normalde session burada gelir.
+     *
+     * Gelmezse bir kez otomatik giriş
+     * deniyoruz.
+     */
+
+    if (!session) {
+
+      console.log(
+        "Signup session yok, otomatik giriş deneniyor..."
+      );
+
+
+      const login =
+        await sb.auth.signInWithPassword({
+          email,
+          password
+        });
+
+
+      if (login.error) {
+
+        console.error(
+          "AUTO LOGIN ERROR:",
+          login.error
+        );
+
+
+        notify(
+          "Hesap oluşturuldu. E-posta doğrulaması gerekiyorsa e-postanı onayla, ardından giriş yap."
+        );
+
+        return;
+      }
+
+
+      session =
+        login.data?.session;
+
+      currentUser =
+        login.data?.user;
+
+    } else {
+
+      currentUser =
+        user;
+
+    }
+
+
+    if (!session || !currentUser) {
+
+      notify(
+        "Hesap oluşturuldu. Şimdi giriş yapabilirsin."
+      );
+
+      return;
+    }
+
+
+    await loadData();
+
+    showApp();
+
+    notify(
+      "Hesap oluşturuldu ✓"
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "AUTH ERROR:",
+      error
+    );
+
+
+    notify(
+      error?.message ||
+      "Kimlik doğrulama sırasında hata oluştu."
+    );
+
+
+  } finally {
+
+    authBusy = false;
+
+    if (button) {
+
+      button.disabled = false;
+
+      button.textContent =
+        oldText;
+
+    }
+
+  }
 
 }
 
-data.transactions.unshift({
-id:row.id,
-type:row.type,
-desc:row.description,
-amount:Number(row.amount),
-cat:"Gelir",
-date:row.transaction_date
-});
 
-closeIncomeModal();
+/* =========================
+   AUTH MOD DEĞİŞTİR
+========================= */
 
-document.getElementById("iDesc").value="";
-document.getElementById("iAmount").value="";
+function toggleAuthMode() {
 
-renderAll();
+  const mode =
+    document.getElementById(
+      "authMode"
+    );
 
-notify("Gelir kaydedildi ✓");
+  if (!mode) {
+    return;
+  }
 
+
+  const signup =
+    mode.value === "login";
+
+
+  mode.value =
+    signup
+      ? "signup"
+      : "login";
+
+
+  setText(
+    "authTitle",
+    signup
+      ? "Hesap oluştur"
+      : "Finans Koçu'na giriş yap"
+  );
+
+
+  const nameWrap =
+    document.getElementById(
+      "authNameWrap"
+    );
+
+  if (nameWrap) {
+
+    nameWrap.style.display =
+      signup
+        ? "block"
+        : "none";
+
+  }
+
+
+  setText(
+    "authSubmit",
+    signup
+      ? "Kayıt Ol"
+      : "Giriş Yap"
+  );
+
+
+  setText(
+    "authToggle",
+    signup
+      ? "Zaten hesabın var mı? Giriş yap"
+      : "Hesabın yok mu? Kayıt ol"
+  );
+
+}
+
+
+/* =========================
+   AI
+========================= */
+
+function askAI(question) {
+
+  const input =
+    document.getElementById(
+      "aiInput"
+    );
+
+  if (!input) {
+    return;
+  }
+
+  input.value = question;
+
+  sendAI();
+}
+
+
+async function sendAI() {
+
+  const input =
+    document.getElementById(
+      "aiInput"
+    );
+
+  const box =
+    document.getElementById(
+      "chatMessages"
+    );
+
+  if (!input || !box) {
+    return;
+  }
+
+
+  const question =
+    input.value.trim();
+
+  if (!question) {
+    return;
+  }
+
+
+  box.innerHTML += `
+    <div class="bubble user">
+      ${esc(question)}
+    </div>
+  `;
+
+
+  input.value = "";
+
+
+  const typing =
+    document.createElement("div");
+
+  typing.id = "aiTyping";
+  typing.className = "bubble bot";
+  typing.textContent =
+    "Analiz ediyorum…";
+
+  box.appendChild(typing);
+
+
+  try {
+
+    const sessionResult =
+      await sb.auth.getSession();
+
+    const session =
+      sessionResult.data?.session;
+
+
+    if (!session) {
+
+      typing.remove();
+
+      box.innerHTML += `
+        <div class="bubble bot">
+          AI kullanmak için giriş yapmalısın.
+        </div>
+      `;
+
+      return;
+    }
+
+
+    const response =
+      await fetch(
+        "/api/ai",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            "Authorization":
+              "Bearer " +
+              session.access_token
+          },
+
+          body: JSON.stringify({
+            question
+          })
+        }
+      );
+
+
+    const result =
+      await response.json();
+
+
+    typing.remove();
+
+
+    box.innerHTML += `
+      <div class="bubble bot">
+        ${esc(
+          result.answer ||
+          result.error ||
+          "Yanıt alınamadı."
+        )}
+      </div>
+    `;
+
+
+  } catch (error) {
+
+    console.error(
+      "AI ERROR:",
+      error
+    );
+
+    typing.remove();
+
+    box.innerHTML += `
+      <div class="bubble bot">
+        AI bağlantısında bir sorun oluştu.
+      </div>
+    `;
+
+  }
+
+
+  box.scrollTop =
+    box.scrollHeight;
 }
 
 
@@ -1037,68 +1861,69 @@ notify("Gelir kaydedildi ✓");
    FİŞ
 ========================= */
 
-function receiptSelected(element){
+function receiptSelected(element) {
 
-if(!element.files?.[0])return;
+  const file =
+    element.files?.[0];
 
-const file=element.files[0];
+  if (!file) {
+    return;
+  }
 
-const result=document.getElementById("receiptResult");
 
-if(result){
+  const result =
+    document.getElementById(
+      "receiptResult"
+    );
 
-result.innerHTML=`
-<div style="
-margin-top:18px;
-padding:12px;
-background:#f5f3ff;
-border-radius:10px;
-font-size:12px;
-color:#5148e8
-">
-✓ ${esc(file.name)} seçildi.
-OCR bağlantısı için hazır.
-</div>
-`;
 
-}
+  if (result) {
 
-notify("Fiş görseli seçildi.");
+    result.innerHTML = `
+      <div style="
+        margin-top:18px;
+        padding:12px;
+        background:#f5f3ff;
+        border-radius:10px;
+        font-size:12px;
+        color:#5148e8;
+      ">
+        ✓ ${esc(file.name)} seçildi.
+        OCR bağlantısı için hazır.
+      </div>
+    `;
 
+  }
+
+
+  notify(
+    "Fiş görseli seçildi."
+  );
 }
 
 
 /* =========================
-   DİĞER
+   PRO
 ========================= */
 
-function showPro(){
-
-notify(
-"Pro ödeme ekranı sonraki entegrasyon adımında aktif edilecek."
-);
-
+function showPro() {
+  notify(
+    "Pro ödeme ekranı sonraki entegrasyon adımında aktif edilecek."
+  );
 }
 
-function notify(message){
 
-const toast=document.getElementById("toast");
+/* =========================
+   MOBİL MENÜ
+========================= */
 
-if(!toast)return;
+function toggleSide() {
 
-toast.textContent=message;
-toast.classList.add("show");
-
-setTimeout(()=>{
-toast.classList.remove("show");
-},3000);
-
-}
-
-function toggleSide(){
-
-document.querySelector(".sidebar")
-?.classList.toggle("open");
+  document
+    .querySelector(".sidebar")
+    ?.classList.toggle(
+      "open"
+    );
 
 }
 
@@ -1107,346 +1932,33 @@ document.querySelector(".sidebar")
    ÇIKIŞ
 ========================= */
 
-async function signOut(){
+async function signOut() {
 
-const {error}=await sb.auth.signOut();
+  const result =
+    await sb.auth.signOut();
 
-if(error){
 
-console.error(
-"SIGN OUT ERROR:",
-error
-);
+  if (result.error) {
 
-return notify("Çıkış yapılamadı.");
+    console.error(
+      "SIGNOUT ERROR:",
+      result.error
+    );
 
-}
+    return notify(
+      "Çıkış yapılamadı."
+    );
 
-currentUser=null;
+  }
 
-showAuth();
 
-notify("Çıkış yapıldı.");
+  currentUser = null;
 
-}
+  showAuth();
 
-
-/* =========================
-   GİRİŞ / KAYIT
-========================= */
-
-async function authSubmit(){
-
-if(authBusy)return;
-
-const email=document.getElementById("authEmail")
-?.value?.trim();
-
-const password=document.getElementById("authPassword")
-?.value||"";
-
-const name=document.getElementById("authName")
-?.value?.trim()||"";
-
-const mode=document.getElementById("authMode")
-?.value||"login";
-
-const button=document.getElementById("authSubmit");
-
-clearAuthMessage();
-
-if(!email){
-
-authMessage("E-posta adresini gir.");
-
-return notify(
-"E-posta adresini gir."
-);
-
-}
-
-if(!password){
-
-authMessage("Şifreni gir.");
-
-return notify(
-"Şifreni gir."
-);
-
-}
-
-if(password.length<6){
-
-authMessage(
-"Şifre en az 6 karakter olmalı."
-);
-
-return notify(
-"Şifre en az 6 karakter olmalı."
-);
-
-}
-
-authBusy=true;
-
-const oldText=button?.textContent||
-(mode==="login"?"Giriş Yap":"Kayıt Ol");
-
-if(button){
-
-button.disabled=true;
-
-button.textContent=
-mode==="login"
-?"Giriş yapılıyor..."
-:"Hesap oluşturuluyor...";
-
-}
-
-try{
-
-let result;
-
-
-/* GİRİŞ */
-
-if(mode==="login"){
-
-result=await sb.auth.signInWithPassword({
-email,
-password
-});
-
-}
-
-
-/* KAYIT */
-
-else{
-
-result=await sb.auth.signUp({
-
-email,
-
-password,
-
-options:{
-data:{
-full_name:
-name||
-email.split("@")[0]
-}
-}
-
-});
-
-}
-
-console.log(
-"SUPABASE AUTH RESULT:",
-result
-);
-
-
-/* HATA */
-
-if(result.error){
-
-console.error(
-"SUPABASE AUTH ERROR:",
-result.error
-);
-
-authMessage(
-result.error.message||
-"Kimlik doğrulama hatası."
-);
-
-notify(
-result.error.message||
-"Kimlik doğrulama hatası."
-);
-
-return;
-
-}
-
-
-/*
-  Supabase bazı ayarlarda signUp sonrası
-  session döndürmeyebilir.
-  Önce mevcut session'ı kontrol ediyoruz.
-*/
-
-let user=result.data?.user||null;
-let session=result.data?.session||null;
-
-if(!session){
-
-const check=await sb.auth.getSession();
-
-if(check.error){
-
-console.error(
-"SESSION CHECK ERROR:",
-check.error
-);
-
-}else{
-
-session=check.data?.session||null;
-
-user=session?.user||user;
-
-}
-
-}
-
-console.log("USER:",user);
-console.log("SESSION:",session);
-
-
-/* SESSION VAR */
-
-if(session?.user){
-
-currentUser=session.user;
-
-try{
-
-await loadData();
-
-}catch(error){
-
-console.error(
-"LOAD DATA AFTER AUTH ERROR:",
-error
-);
-
-}
-
-showApp();
-
-const message=
-mode==="login"
-?"Giriş başarılı ✓"
-:"Hesap oluşturuldu ve giriş yapıldı ✓";
-
-notify(message);
-
-return;
-
-}
-
-
-/*
-  Buraya geldiyse hesap oluştu ama
-  Supabase session vermedi.
-*/
-
-if(mode==="signup"&&user){
-
-authMessage(
-"Hesap oluşturuldu ancak oturum açılamadı. Eğer e-posta doğrulaması açıksa önce e-postandaki doğrulama bağlantısına tıklaman gerekiyor."
-);
-
-notify(
-"Hesap oluşturuldu fakat oturum açılamadı."
-);
-
-return;
-
-}
-
-
-/* SON ÇARE */
-
-authMessage(
-"Oturum oluşturulamadı. Supabase Authentication ayarlarını kontrol et."
-);
-
-notify(
-"Oturum oluşturulamadı."
-);
-
-}catch(error){
-
-console.error(
-"AUTH EXCEPTION:",
-error
-);
-
-const message=
-"Hata: "+
-(error?.message||"Bilinmeyen hata");
-
-authMessage(message);
-
-notify(message);
-
-}finally{
-
-authBusy=false;
-
-if(button){
-
-button.disabled=false;
-button.textContent=oldText;
-
-}
-
-}
-
-}
-
-
-/* =========================
-   KAYIT / GİRİŞ DEĞİŞTİR
-========================= */
-
-function toggleAuthMode(){
-
-const mode=document.getElementById("authMode");
-
-if(!mode)return;
-
-clearAuthMessage();
-
-const isLogin=mode.value==="login";
-
-mode.value=isLogin?"signup":"login";
-
-const signup=mode.value==="signup";
-
-setText(
-"authTitle",
-signup
-?"Hesap oluştur"
-:"Finans Koçu'na giriş yap"
-);
-
-const nameWrap=
-document.getElementById("authNameWrap");
-
-if(nameWrap){
-
-nameWrap.style.display=
-signup?"block":"none";
-
-}
-
-setText(
-"authSubmit",
-signup?"Kayıt Ol":"Giriş Yap"
-);
-
-setText(
-"authToggle",
-signup
-?"Zaten hesabın var mı? Giriş yap"
-:"Hesabın yok mu? Kayıt ol"
-);
-
+  notify(
+    "Çıkış yapıldı."
+  );
 }
 
 
