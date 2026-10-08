@@ -1,27 +1,10 @@
-/* =========================================================
-   FİNANS KOÇU - APP.JS
-   ========================================================= */
-
 const SUPABASE_URL = "https://aludzquzksppncjncklhn.supabase.co";
-
-const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsdWR6cXV6a3BvbGNqbmtja2huIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0MDQxMjQsImV4cCI6MjEwNjk4MDEyNH0.6miEkb9_hxo17cRL6rpFaDUCP_BgEPzq1RkYPLPAwW0";
-
-/*
-  Eğer yukarıdaki anahtar Supabase tarafından değiştirilmişse
-  Supabase > Project Settings > API kısmındaki ANON/PUBLISHABLE
-  anahtarını buraya koy.
-*/
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsdWR6cXV6a3NwbmNqbmNrbGhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0MDQxMjQsImV4cCI6MjEwNjk4MDEyNH0.6miEkb9_hxo17cRL6rpFaDUCP_BgEPzq1RkYPLPAwW0";
 
 const sb = window.supabase.createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY
 );
-
-
-/* =========================================================
-   SABİTLER
-   ========================================================= */
 
 const cats = [
   "Yemek & İçme",
@@ -57,23 +40,8 @@ const colors = [
   "#98a2b3"
 ];
 
-const defaultBudgetLimits = {
-  "Yemek & İçme": 5000,
-  "Market": 4000,
-  "Ulaşım": 3500,
-  "Alışveriş": 4000,
-  "Faturalar": 3000,
-  "Eğlence": 2000,
-  "Sağlık": 1500,
-  "Diğer": 2000
-};
-
-
-/* =========================================================
-   UYGULAMA DURUMU
-   ========================================================= */
-
 let data = {
+  income: [],
   transactions: [],
   goal: 10000
 };
@@ -81,48 +49,27 @@ let data = {
 let currentUser = null;
 
 
-/* =========================================================
-   YARDIMCI FONKSİYONLAR
-   ========================================================= */
+/* =========================
+   GENEL
+========================= */
 
-function money(value) {
+function money(n) {
   return new Intl.NumberFormat("tr-TR", {
     style: "currency",
     currency: "TRY",
     maximumFractionDigits: 0
-  }).format(Number(value) || 0);
-}
-
-
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-
-function esc(value) {
-  return String(value ?? "").replace(
-    /[&<>"']/g,
-    function (m) {
-      return {
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#039;"
-      }[m];
-    }
-  );
+  }).format(Number(n) || 0);
 }
 
 
 function totals() {
   const income = data.transactions
     .filter(x => x.type === "income")
-    .reduce((sum, x) => sum + Number(x.amount || 0), 0);
+    .reduce((a, x) => a + Number(x.amount), 0);
 
   const expense = data.transactions
     .filter(x => x.type === "expense")
-    .reduce((sum, x) => sum + Number(x.amount || 0), 0);
+    .reduce((a, x) => a + Number(x.amount), 0);
 
   return {
     income,
@@ -132,59 +79,47 @@ function totals() {
 }
 
 
-function getEl(id) {
-  return document.getElementById(id);
+function esc(s) {
+  return String(s ?? "").replace(
+    /[&<>"']/g,
+    m => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    }[m])
+  );
 }
 
 
-/* =========================================================
-   BAŞLANGIÇ
-   ========================================================= */
+/* =========================
+   BAŞLAT
+========================= */
 
 async function init() {
 
-  console.log("Finans Koçu başlatılıyor...");
+  document.querySelectorAll(".nav").forEach(button => {
+    button.onclick = () => switchView(button.dataset.view);
+  });
+
+  const categorySelect = document.getElementById("mCat");
+
+  if (categorySelect) {
+    categorySelect.innerHTML = cats
+      .map(c => `<option>${c}</option>`)
+      .join("");
+  }
+
+  const dateInput = document.getElementById("mDate");
+
+  if (dateInput) {
+    dateInput.value = new Date()
+      .toISOString()
+      .slice(0, 10);
+  }
 
   try {
-
-    /*
-      Navigasyon
-    */
-
-    document.querySelectorAll(".nav").forEach(button => {
-      button.onclick = function () {
-        switchView(button.dataset.view);
-      };
-    });
-
-
-    /*
-      Harcama kategorileri
-    */
-
-    const categorySelect = getEl("mCat");
-
-    if (categorySelect) {
-      categorySelect.innerHTML = cats
-        .map(category => `<option value="${esc(category)}">${esc(category)}</option>`)
-        .join("");
-    }
-
-
-    /*
-      Tarih
-    */
-
-    const dateInput = getEl("mDate");
-
-    if (dateInput) {
-      dateInput.value = today();
-    }
-
-
-    /*
-      Supabase mevcut oturum
-    */
 
     const {
       data: sessionData,
@@ -192,15 +127,19 @@ async function init() {
     } = await sb.auth.getSession();
 
     if (error) {
-      console.error("Session error:", error);
+      console.error("SESSION ERROR:", error);
       showAuth();
-    } else if (sessionData?.session) {
+      return;
+    }
 
-      currentUser = sessionData.session.user;
+    const session = sessionData?.session;
 
-      console.log("Mevcut kullanıcı:", currentUser.email);
+    if (session?.user) {
+
+      currentUser = session.user;
 
       await loadData();
+
       showApp();
 
     } else {
@@ -209,54 +148,51 @@ async function init() {
 
     }
 
-
-    /*
-      Auth değişikliklerini dinle
-    */
-
-    sb.auth.onAuthStateChange(async function (event, session) {
-
-      console.log("Auth event:", event);
-
-      if (session) {
-
-        currentUser = session.user;
-
-        await loadData();
-
-        showApp();
-
-      } else {
-
-        currentUser = null;
-
-        data.transactions = [];
-
-        showAuth();
-
-      }
-
-    });
-
   } catch (error) {
 
     console.error("INIT ERROR:", error);
 
-    notify(
-      "Uygulama başlatılırken bir hata oluştu."
-    );
+    showAuth();
 
   }
+
+
+  sb.auth.onAuthStateChange(async (event, session) => {
+
+    console.log("AUTH EVENT:", event);
+
+    if (session?.user) {
+
+      currentUser = session.user;
+
+      try {
+        await loadData();
+      } catch (error) {
+        console.error("LOAD DATA ERROR:", error);
+      }
+
+      showApp();
+
+    } else {
+
+      currentUser = null;
+
+      showAuth();
+
+    }
+
+  });
+
 }
 
 
-/* =========================================================
-   AUTH
-   ========================================================= */
+/* =========================
+   AUTH EKRANI
+========================= */
 
 function showAuth() {
 
-  const modal = getEl("authModal");
+  const modal = document.getElementById("authModal");
   const main = document.querySelector("main");
 
   if (modal) {
@@ -271,7 +207,7 @@ function showAuth() {
 
 function showApp() {
 
-  const modal = getEl("authModal");
+  const modal = document.getElementById("authModal");
   const main = document.querySelector("main");
 
   if (modal) {
@@ -286,9 +222,9 @@ function showApp() {
 }
 
 
-/* =========================================================
-   VERİLERİ SUPABASE'DEN AL
-   ========================================================= */
+/* =========================
+   VERİLERİ YÜKLE
+========================= */
 
 async function loadData() {
 
@@ -296,90 +232,77 @@ async function loadData() {
     return;
   }
 
-  try {
+  const [
+    transactionsResult,
+    goalsResult
+  ] = await Promise.all([
 
-    const transactionsResponse = await sb
+    sb
       .from("transactions")
       .select(
-        "id,user_id,type,description,amount,category,transaction_date,created_at"
+        "id,type,description,amount,category,transaction_date,created_at"
       )
-      .eq("user_id", currentUser.id)
       .order("transaction_date", {
         ascending: false
-      });
+      }),
 
-
-    if (transactionsResponse.error) {
-
-      console.error(
-        "Transactions error:",
-        transactionsResponse.error
-      );
-
-      notify(
-        "Hareketler alınamadı: " +
-        transactionsResponse.error.message
-      );
-
-      return;
-    }
-
-
-    const goalsResponse = await sb
+    sb
       .from("goals")
       .select(
-        "id,user_id,name,target_amount,current_amount,created_at"
+        "id,target_amount,current_amount,created_at"
       )
-      .eq("user_id", currentUser.id)
       .order("created_at", {
         ascending: true
       })
-      .limit(1);
+      .limit(1)
+
+  ]);
 
 
-    if (goalsResponse.error) {
+  const tx = transactionsResult.data;
+  const txError = transactionsResult.error;
 
-      console.error(
-        "Goals error:",
-        goalsResponse.error
-      );
-
-    }
+  const goals = goalsResult.data;
+  const goalError = goalsResult.error;
 
 
-    const transactions =
-      transactionsResponse.data || [];
+  if (txError) {
 
-    const goals =
-      goalsResponse.data || [];
+    console.error("TRANSACTIONS ERROR:", txError);
 
+    data.transactions = [];
 
-    data.transactions = transactions.map(x => ({
+  } else {
+
+    data.transactions = (tx || []).map(x => ({
       id: x.id,
       type: x.type,
       desc: x.description,
-      amount: Number(x.amount || 0),
+      amount: Number(x.amount),
       cat: x.category,
       date: x.transaction_date
     }));
 
+  }
 
-    const goal = goals[0];
 
+  if (goalError) {
 
-    if (goal) {
+    console.error("GOALS ERROR:", goalError);
 
-      data.goal = Number(
-        goal.target_amount || 10000
-      );
+    data.goal = 10000;
 
-    } else {
+  } else {
 
-      data.goal = 10000;
+    const goal = goals?.[0];
 
-      const {
-        error: goalInsertError
-      } = await sb
+    data.goal = goal
+      ? Number(goal.target_amount)
+      : 10000;
+
+    if (!goal) {
+
+      const { error } = await sb
         .from("goals")
         .insert({
           user_id: currentUser.id,
@@ -388,144 +311,75 @@ async function loadData() {
           current_amount: 0
         });
 
-      if (goalInsertError) {
-
-        console.error(
-          "Goal create error:",
-          goalInsertError
-        );
-
+      if (error) {
+        console.error("GOAL CREATE ERROR:", error);
       }
 
     }
 
-
-    /*
-      Avatar
-    */
-
-    const name =
-      currentUser.user_metadata?.full_name ||
-      currentUser.email?.split("@")[0] ||
-      "Kullanıcı";
-
-
-    const avatar = document.querySelector(".avatar");
-
-    if (avatar) {
-      avatar.textContent =
-        name.slice(0, 1).toUpperCase();
-    }
-
-
-  } catch (error) {
-
-    console.error("LOAD DATA ERROR:", error);
-
-    notify(
-      "Veriler yüklenirken bir hata oluştu."
-    );
-
   }
+
+
+  const name =
+    currentUser.user_metadata?.full_name ||
+    currentUser.email?.split("@")[0] ||
+    "Kullanıcı";
+
+
+  const avatar = document.querySelector(".avatar");
+
+  if (avatar) {
+    avatar.textContent = name
+      .slice(0, 1)
+      .toUpperCase();
+  }
+
 }
 
 
-/* =========================================================
-   ANA RENDER
-   ========================================================= */
+/* =========================
+   DASHBOARD
+========================= */
 
 function renderAll() {
 
   const t = totals();
 
 
-  /*
-    Dashboard değerleri
-  */
+  setText("available", money(t.saving));
+  setText("income", money(t.income));
+  setText("expense", money(t.expense));
+  setText("saving", money(t.saving));
 
-  const available = getEl("available");
-  const income = getEl("income");
-  const expense = getEl("expense");
-  const saving = getEl("saving");
-  const savingRate = getEl("savingRate");
-  const goal = getEl("goal");
-  const goalRate = getEl("goalRate");
+  setText(
+    "savingRate",
+    (t.income
+      ? Math.round((t.saving / t.income) * 100)
+      : 0) + "% tasarruf"
+  );
 
-  if (available) {
-    available.textContent = money(t.saving);
-  }
+  setText("goal", money(data.goal));
 
-  if (income) {
-    income.textContent = money(t.income);
-  }
+  const goalRate = data.goal
+    ? Math.round((t.saving / data.goal) * 100)
+    : 0;
 
-  if (expense) {
-    expense.textContent = money(t.expense);
-  }
+  setText(
+    "goalRate",
+    Math.min(100, Math.max(0, goalRate)) +
+      "% tamamlandı"
+  );
 
-  if (saving) {
-    saving.textContent = money(t.saving);
-  }
+  setText("budgetIncome", money(t.income));
+  setText("budgetExpense", money(t.expense));
+  setText("budgetLeft", money(t.saving));
 
-  if (savingRate) {
-
-    const rate =
-      t.income > 0
-        ? Math.round((t.saving / t.income) * 100)
-        : 0;
-
-    savingRate.textContent =
-      rate + "% tasarruf";
-  }
-
-  if (goal) {
-    goal.textContent = money(data.goal);
-  }
-
-  if (goalRate) {
-
-    const rate =
-      data.goal > 0
-        ? Math.round(
-            (t.saving / data.goal) * 100
-          )
-        : 0;
-
-    goalRate.textContent =
-      Math.min(100, Math.max(0, rate)) +
-      "% tamamlandı";
-  }
-
-
-  /*
-    Budget
-  */
-
-  const budgetIncome = getEl("budgetIncome");
-  const budgetExpense = getEl("budgetExpense");
-  const budgetLeft = getEl("budgetLeft");
-  const budgetStatus = getEl("budgetStatus");
-
-  if (budgetIncome) {
-    budgetIncome.textContent = money(t.income);
-  }
-
-  if (budgetExpense) {
-    budgetExpense.textContent = money(t.expense);
-  }
-
-  if (budgetLeft) {
-    budgetLeft.textContent = money(t.saving);
-  }
-
-  if (budgetStatus) {
-
-    budgetStatus.textContent =
-      t.saving >= data.goal
-        ? "🎯 Aylık hedefindesin."
-        : "Hedefe yaklaşmak için harcamalarını azaltabilirsin.";
-
-  }
+  setText(
+    "budgetStatus",
+    t.saving >= data.goal
+      ? "🎯 Aylık hedefindesin."
+      : "Hedefe yaklaşmak için harcamalarını azaltabilirsin."
+  );
 
 
   drawDonut();
@@ -533,16 +387,28 @@ function renderAll() {
   renderTransactions();
   renderBudget();
   renderInsight();
+
 }
 
 
-/* =========================================================
-   DONUT GRAFİK
-   ========================================================= */
+function setText(id, value) {
+
+  const el = document.getElementById(id);
+
+  if (el) {
+    el.textContent = value;
+  }
+
+}
+
+
+/* =========================
+   DONUT
+========================= */
 
 function drawDonut() {
 
-  const canvas = getEl("donut");
+  const canvas = document.getElementById("donut");
 
   if (!canvas) {
     return;
@@ -550,43 +416,21 @@ function drawDonut() {
 
   const ctx = canvas.getContext("2d");
 
-  if (!ctx) {
-    return;
-  }
+  const d = window.devicePixelRatio || 1;
 
-  const ratio =
-    window.devicePixelRatio || 1;
+  canvas.width = 190 * d;
+  canvas.height = 190 * d;
 
-
-  canvas.width = 190 * ratio;
-  canvas.height = 190 * ratio;
-
-  canvas.style.width = "190px";
-  canvas.style.height = "190px";
-
-  ctx.setTransform(
-    ratio,
-    0,
-    0,
-    ratio,
-    0,
-    0
-  );
-
+  ctx.setTransform(d, 0, 0, d, 0, 0);
 
   let sums = {};
-
 
   data.transactions
     .filter(x => x.type === "expense")
     .forEach(x => {
-
-      const category = x.cat || "Diğer";
-
-      sums[category] =
-        (sums[category] || 0) +
-        Number(x.amount || 0);
-
+      sums[x.cat] =
+        (sums[x.cat] || 0) +
+        Number(x.amount);
     });
 
 
@@ -595,96 +439,63 @@ function drawDonut() {
 
 
   const total = arr.reduce(
-    (sum, item) => sum + item[1],
+    (a, x) => a + x[1],
     0
   );
 
 
   let start = -Math.PI / 2;
 
+  ctx.clearRect(0, 0, 190, 190);
 
-  ctx.clearRect(
-    0,
-    0,
-    190,
-    190
-  );
+  ctx.lineWidth = 24;
 
 
-  /*
-    Boş grafik
-  */
+  if (total) {
 
-  if (!total) {
+    arr.forEach(([cat, value], i) => {
 
-    ctx.beginPath();
+      const end =
+        start +
+        (value / total) *
+          Math.PI *
+          2;
 
-    ctx.lineWidth = 24;
+      ctx.strokeStyle =
+        colors[i % colors.length];
 
-    ctx.strokeStyle = "#eaecf0";
+      ctx.beginPath();
 
-    ctx.arc(
-      95,
-      95,
-      65,
-      0,
-      Math.PI * 2
-    );
+      ctx.arc(
+        95,
+        95,
+        65,
+        start,
+        end - 0.03
+      );
 
-    ctx.stroke();
+      ctx.stroke();
 
-  } else {
+      start = end;
 
-    arr.forEach(
-      ([category, value], index) => {
-
-        const end =
-          start +
-          (value / total) *
-            Math.PI *
-            2;
-
-
-        ctx.beginPath();
-
-        ctx.lineWidth = 24;
-
-        ctx.strokeStyle =
-          colors[index % colors.length];
-
-        ctx.arc(
-          95,
-          95,
-          65,
-          start,
-          end - 0.03
-        );
-
-        ctx.stroke();
-
-        start = end;
-
-      }
-    );
+    });
 
   }
 
 
   const center =
-    getEl("donutCenter");
+    document.getElementById("donutCenter");
 
   if (center) {
 
     center.innerHTML = `
       <div>
         <span>${money(total)}</span>
-        <small
-          style="
-            display:block;
-            color:#667085;
-            font-size:10px;
-          "
-        >
+        <small style="
+          display:block;
+          color:#667085;
+          font-size:10px
+        ">
           Toplam gider
         </small>
       </div>
@@ -694,23 +505,22 @@ function drawDonut() {
 
 
   const legend =
-    getEl("legend");
-
+    document.getElementById("legend");
 
   if (legend) {
 
     legend.innerHTML =
       arr.length
-
         ? arr
             .map(
-              ([category, value], index) => `
+              ([category, value], i) => `
                 <span class="legend-item">
                   <i
                     class="dot"
                     style="
-                      background:
-                        ${colors[index % colors.length]}
+                      background:${
+                        colors[i % colors.length]
+                      }
                     "
                   ></i>
                   ${esc(category)}
@@ -719,74 +529,50 @@ function drawDonut() {
               `
             )
             .join("")
+        : "<span class='muted'>Henüz gider yok.</span>";
 
-        : `
-          <span class="muted">
-            Henüz gider yok.
-          </span>
-        `;
   }
+
 }
 
 
-/* =========================================================
+/* =========================
    SON HAREKETLER
-   ========================================================= */
+========================= */
 
 function renderRecent() {
 
-  const element = getEl("recent");
+  const element =
+    document.getElementById("recent");
 
   if (!element) {
     return;
   }
 
-
-  const transactions =
-    [...data.transactions]
-      .sort(
-        (a, b) =>
-          String(b.date).localeCompare(
-            String(a.date)
-          )
+  const transactions = [
+    ...data.transactions
+  ]
+    .sort((a, b) =>
+      String(b.date).localeCompare(
+        String(a.date)
       )
-      .slice(0, 5);
+    )
+    .slice(0, 5);
 
 
   element.innerHTML =
     transactions.length
+      ? transactions.map(txHTML).join("")
+      : "<p class='muted'>Henüz işlem bulunamadı.</p>";
 
-      ? transactions
-          .map(txHTML)
-          .join("")
-
-      : `
-        <p class="muted">
-          Henüz işlem bulunamadı.
-        </p>
-      `;
 }
 
 
-/* =========================================================
+/* =========================
    TRANSACTION HTML
-   ========================================================= */
+========================= */
 
 function txHTML(x) {
-
-  const icon =
-    icons[
-      x.type === "income"
-        ? "Gelir"
-        : x.cat
-    ] || "📦";
-
-
-  const sign =
-    x.type === "income"
-      ? "+"
-      : "−";
-
 
   return `
     <div class="transaction">
@@ -794,7 +580,13 @@ function txHTML(x) {
       <div class="tx-left">
 
         <div class="tx-icon">
-          ${icon}
+          ${
+            icons[
+              x.type === "income"
+                ? "Gelir"
+                : x.cat
+            ] || "📦"
+          }
         </div>
 
         <div>
@@ -807,7 +599,7 @@ function txHTML(x) {
             ${
               x.type === "income"
                 ? "Gelir"
-                : esc(x.cat || "Diğer")
+                : esc(x.cat)
             }
             •
             ${esc(x.date)}
@@ -818,22 +610,24 @@ function txHTML(x) {
       </div>
 
       <div class="amount ${x.type}">
-        ${sign}${money(x.amount)}
+        ${x.type === "income" ? "+" : "−"}
+        ${money(x.amount)}
       </div>
 
     </div>
   `;
+
 }
 
 
-/* =========================================================
+/* =========================
    TÜM HAREKETLER
-   ========================================================= */
+========================= */
 
 function renderTransactions() {
 
   const element =
-    getEl("allTransactions");
+    document.getElementById("allTransactions");
 
   if (!element) {
     return;
@@ -841,13 +635,11 @@ function renderTransactions() {
 
 
   const search =
-    getEl("search")?.value
-      ?.toLowerCase()
-      .trim() || "";
-
+    document.getElementById("search")?.value
+      ?.toLowerCase() || "";
 
   const filter =
-    getEl("filter")?.value ||
+    document.getElementById("filter")?.value ||
     "all";
 
 
@@ -855,57 +647,41 @@ function renderTransactions() {
     data.transactions
       .filter(x => {
 
-        const matchesFilter =
+        const matchesType =
           filter === "all" ||
           x.type === filter;
 
-
-        const text =
-          `${x.desc || ""} ${x.cat || ""}`
-            .toLowerCase();
-
-
         const matchesSearch =
-          text.includes(search);
+          `${x.desc} ${x.cat}`
+            .toLowerCase()
+            .includes(search);
 
-
-        return (
-          matchesFilter &&
-          matchesSearch
-        );
+        return matchesType && matchesSearch;
 
       })
-      .sort(
-        (a, b) =>
-          String(b.date).localeCompare(
-            String(a.date)
-          )
+      .sort((a, b) =>
+        String(b.date).localeCompare(
+          String(a.date)
+        )
       );
 
 
   element.innerHTML =
     transactions.length
+      ? transactions.map(txHTML).join("")
+      : "<p class='muted'>Henüz işlem bulunamadı.</p>";
 
-      ? transactions
-          .map(txHTML)
-          .join("")
-
-      : `
-        <p class="muted">
-          Henüz işlem bulunamadı.
-        </p>
-      `;
 }
 
 
-/* =========================================================
+/* =========================
    BÜTÇE
-   ========================================================= */
+========================= */
 
 function renderBudget() {
 
   const element =
-    getEl("budgetBars");
+    document.getElementById("budgetBars");
 
   if (!element) {
     return;
@@ -914,33 +690,40 @@ function renderBudget() {
 
   let sums = {};
 
-
   data.transactions
     .filter(x => x.type === "expense")
     .forEach(x => {
 
-      const category =
-        x.cat || "Diğer";
-
-      sums[category] =
-        (sums[category] || 0) +
-        Number(x.amount || 0);
+      sums[x.cat] =
+        (sums[x.cat] || 0) +
+        Number(x.amount);
 
     });
 
 
+  const limits = {
+    "Yemek & İçme": 5000,
+    "Market": 4000,
+    "Ulaşım": 3500,
+    "Alışveriş": 4000,
+    "Faturalar": 3000,
+    "Eğlence": 2000,
+    "Sağlık": 1500,
+    "Diğer": 2000
+  };
+
+
   element.innerHTML =
     cats
-      .map((category, index) => {
+      .map((category, i) => {
 
         const value =
           sums[category] || 0;
 
         const limit =
-          defaultBudgetLimits[category] ||
-          2000;
+          limits[category];
 
-        const percentage =
+        const percent =
           Math.min(
             100,
             (value / limit) * 100
@@ -954,7 +737,7 @@ function renderBudget() {
 
               <span>
                 ${icons[category]}
-                ${esc(category)}
+                ${category}
               </span>
 
               <span>
@@ -970,7 +753,7 @@ function renderBudget() {
               <div
                 class="fill"
                 style="
-                  width:${percentage}%;
+                  width:${percent}%
                 "
               ></div>
 
@@ -981,29 +764,17 @@ function renderBudget() {
 
       })
       .join("");
+
 }
 
 
-/* =========================================================
-   AI / FİNANSAL İÇGÖRÜ
-   ========================================================= */
+/* =========================
+   AI INSIGHT
+========================= */
 
 function renderInsight() {
 
-  const title =
-    getEl("insightTitle");
-
-  const text =
-    getEl("insightText");
-
-
-  if (!title || !text) {
-    return;
-  }
-
-
-  const totalsData = totals();
-
+  const t = totals();
 
   const expenses =
     data.transactions.filter(
@@ -1013,94 +784,90 @@ function renderInsight() {
 
   let sums = {};
 
-
   expenses.forEach(x => {
 
-    const category =
-      x.cat || "Diğer";
-
-    sums[category] =
-      (sums[category] || 0) +
-      Number(x.amount || 0);
+    sums[x.cat] =
+      (sums[x.cat] || 0) +
+      Number(x.amount);
 
   });
 
 
   const top =
     Object.entries(sums)
-      .sort(
-        (a, b) => b[1] - a[1]
-      )[0];
+      .sort((a, b) => b[1] - a[1])[0];
 
 
-  if (!top) {
+  const title =
+    document.getElementById("insightTitle");
+
+  const text =
+    document.getElementById("insightText");
+
+
+  if (!title || !text) {
+    return;
+  }
+
+
+  if (top) {
+
+    title.textContent =
+      `${top[0]} en büyük harcama kalemin.`;
+
+    text.textContent =
+      `${money(top[1])} harcadın. ` +
+      `Gelirinin %${
+        t.income
+          ? Math.round(
+              (top[1] / t.income) * 100
+            )
+          : 0
+      }'i bu kategoriye gidiyor. ` +
+      `Tasarruf hedefin ${money(data.goal)}.`;
+
+  } else {
 
     title.textContent =
       "Henüz yeterli veri yok.";
 
     text.textContent =
-      "Birkaç işlem eklediğinde sana kişisel bir finansal analiz sunacağım.";
+      "Birkaç işlem eklediğinde sana kişisel bir analiz sunacağım.";
 
-    return;
   }
 
-
-  title.textContent =
-    `${top[0]} en büyük harcama kalemin.`;
-
-
-  const percentage =
-    totalsData.income > 0
-      ? Math.round(
-          (top[1] /
-            totalsData.income) *
-            100
-        )
-      : 0;
-
-
-  text.textContent =
-    `${money(top[1])} harcadın. ` +
-    `Gelirinin %${percentage}'i bu kategoriye gidiyor. ` +
-    `Tasarruf hedefin ${money(data.goal)}.`;
 }
 
 
-/* =========================================================
-   SAYFA DEĞİŞTİRME
-   ========================================================= */
+/* =========================
+   SAYFA DEĞİŞTİR
+========================= */
 
 function switchView(view) {
 
   document
     .querySelectorAll(".view")
-    .forEach(element => {
-      element.classList.remove(
-        "active-view"
-      );
-    });
-
-
-  const selected =
-    getEl(view);
-
-  if (selected) {
-    selected.classList.add(
-      "active-view"
+    .forEach(x =>
+      x.classList.remove("active-view")
     );
+
+
+  const target =
+    document.getElementById(view);
+
+  if (target) {
+    target.classList.add("active-view");
   }
 
 
   document
     .querySelectorAll(".nav")
-    .forEach(element => {
-
-      element.classList.toggle(
+    .forEach(x =>
+      x.classList.toggle(
         "active",
-        element.dataset.view === view
-      );
-
-    });
+        x.dataset.view === view
+      )
+    );
 
 
   const names = {
@@ -1112,16 +879,10 @@ function switchView(view) {
   };
 
 
-  const title =
-    getEl("pageTitle");
-
-  if (title) {
-
-    title.textContent =
-      names[view] ||
-      "Genel Bakış";
-
-  }
+  setText(
+    "pageTitle",
+    names[view] || "Finans Koçu"
+  );
 
 
   if (window.innerWidth < 901) {
@@ -1131,375 +892,242 @@ function switchView(view) {
       ?.classList.remove("open");
 
   }
+
 }
 
 
-/* =========================================================
-   HARCAMA MODAL
-   ========================================================= */
+/* =========================
+   MODALLAR
+========================= */
 
 function openModal() {
-
-  getEl("modal")
+  document
+    .getElementById("modal")
     ?.classList.add("show");
-
 }
 
 
 function closeModal() {
-
-  getEl("modal")
+  document
+    .getElementById("modal")
     ?.classList.remove("show");
-
 }
 
 
-/* =========================================================
-   GELİR MODAL
-   ========================================================= */
-
 function openIncomeModal() {
-
-  getEl("incomeModal")
+  document
+    .getElementById("incomeModal")
     ?.classList.add("show");
-
 }
 
 
 function closeIncomeModal() {
-
-  getEl("incomeModal")
+  document
+    .getElementById("incomeModal")
     ?.classList.remove("show");
-
 }
 
 
-/* =========================================================
+/* =========================
    HARCAMA EKLE
-   ========================================================= */
+========================= */
 
 async function addExpense() {
 
   if (!currentUser) {
-
-    notify(
-      "Önce giriş yapmalısın."
-    );
-
-    showAuth();
-
-    return;
+    return notify("Önce giriş yapmalısın.");
   }
 
 
-  const description =
-    getEl("mDesc")
+  const desc =
+    document.getElementById("mDesc")
       ?.value
       ?.trim();
 
-
   const amount =
     Number(
-      getEl("mAmount")?.value
+      document.getElementById("mAmount")
+        ?.value
     );
-
 
   const category =
-    getEl("mCat")?.value;
-
+    document.getElementById("mCat")
+      ?.value;
 
   const date =
-    getEl("mDate")?.value ||
-    today();
+    document.getElementById("mDate")
+      ?.value;
 
 
-  if (!description) {
-
-    notify(
-      "Harcama açıklaması gerekli."
+  if (!desc || !amount) {
+    return notify(
+      "Açıklama ve tutar gerekli."
     );
-
-    return;
   }
 
 
-  if (!amount || amount <= 0) {
-
-    notify(
-      "Geçerli bir tutar gir."
-    );
-
-    return;
-  }
-
-
-  try {
-
-    const {
-      data: row,
-      error
-    } = await sb
-      .from("transactions")
-      .insert({
-        user_id: currentUser.id,
-        type: "expense",
-        description,
-        amount,
-        category,
-        transaction_date: date
-      })
-      .select()
-      .single();
-
-
-    if (error) {
-
-      console.error(
-        "Expense error:",
-        error
-      );
-
-      notify(
-        "Kaydedilemedi: " +
-        error.message
-      );
-
-      return;
-    }
-
-
-    data.transactions.unshift({
-
-      id: row.id,
-
+  const {
+    data: row,
+    error
+  } = await sb
+    .from("transactions")
+    .insert({
+      user_id: currentUser.id,
       type: "expense",
-
-      desc: row.description,
-
-      amount:
-        Number(row.amount),
-
-      cat:
-        row.category,
-
-      date:
-        row.transaction_date
-
-    });
+      description: desc,
+      amount,
+      category,
+      transaction_date: date
+    })
+    .select()
+    .single();
 
 
-    closeModal();
+  if (error) {
 
+    console.error("EXPENSE ERROR:", error);
 
-    if (getEl("mDesc")) {
-      getEl("mDesc").value = "";
-    }
-
-    if (getEl("mAmount")) {
-      getEl("mAmount").value = "";
-    }
-
-
-    renderAll();
-
-    notify(
-      "Harcama kaydedildi ✓"
-    );
-
-
-  } catch (error) {
-
-    console.error(
-      "ADD EXPENSE ERROR:",
-      error
-    );
-
-    notify(
-      "Harcama eklenirken hata oluştu."
+    return notify(
+      "Kaydedilemedi: " +
+      error.message
     );
 
   }
+
+
+  data.transactions.unshift({
+    id: row.id,
+    type: row.type,
+    desc: row.description,
+    amount: Number(row.amount),
+    cat: row.category,
+    date: row.transaction_date
+  });
+
+
+  closeModal();
+
+  document.getElementById("mDesc").value = "";
+  document.getElementById("mAmount").value = "";
+
+  renderAll();
+
+  notify("Harcama kaydedildi ✓");
+
 }
 
 
-/* =========================================================
+/* =========================
    GELİR EKLE
-   ========================================================= */
+========================= */
 
 async function addIncome() {
 
   if (!currentUser) {
-
-    notify(
-      "Önce giriş yapmalısın."
-    );
-
-    showAuth();
-
-    return;
+    return notify("Önce giriş yapmalısın.");
   }
 
 
-  const description =
-    getEl("iDesc")
+  const desc =
+    document.getElementById("iDesc")
       ?.value
       ?.trim();
 
-
   const amount =
     Number(
-      getEl("iAmount")?.value
+      document.getElementById("iAmount")
+        ?.value
     );
 
 
-  if (!description) {
-
-    notify(
-      "Gelir açıklaması gerekli."
+  if (!desc || !amount) {
+    return notify(
+      "Açıklama ve tutar gerekli."
     );
-
-    return;
   }
 
 
-  if (!amount || amount <= 0) {
-
-    notify(
-      "Geçerli bir tutar gir."
-    );
-
-    return;
-  }
+  const date =
+    new Date()
+      .toISOString()
+      .slice(0, 10);
 
 
-  try {
-
-    const {
-      data: row,
-      error
-    } = await sb
-      .from("transactions")
-      .insert({
-        user_id: currentUser.id,
-        type: "income",
-        description,
-        amount,
-        category: "Gelir",
-        transaction_date: today()
-      })
-      .select()
-      .single();
-
-
-    if (error) {
-
-      console.error(
-        "Income error:",
-        error
-      );
-
-      notify(
-        "Kaydedilemedi: " +
-        error.message
-      );
-
-      return;
-    }
-
-
-    data.transactions.unshift({
-
-      id: row.id,
-
+  const {
+    data: row,
+    error
+  } = await sb
+    .from("transactions")
+    .insert({
+      user_id: currentUser.id,
       type: "income",
-
-      desc:
-        row.description,
-
-      amount:
-        Number(row.amount),
-
-      cat:
-        "Gelir",
-
-      date:
-        row.transaction_date
-
-    });
+      description: desc,
+      amount,
+      category: "Gelir",
+      transaction_date: date
+    })
+    .select()
+    .single();
 
 
-    closeIncomeModal();
+  if (error) {
 
+    console.error("INCOME ERROR:", error);
 
-    if (getEl("iDesc")) {
-      getEl("iDesc").value = "";
-    }
-
-    if (getEl("iAmount")) {
-      getEl("iAmount").value = "";
-    }
-
-
-    renderAll();
-
-    notify(
-      "Gelir kaydedildi ✓"
-    );
-
-
-  } catch (error) {
-
-    console.error(
-      "ADD INCOME ERROR:",
-      error
-    );
-
-    notify(
-      "Gelir eklenirken hata oluştu."
+    return notify(
+      "Kaydedilemedi: " +
+      error.message
     );
 
   }
+
+
+  data.transactions.unshift({
+    id: row.id,
+    type: row.type,
+    desc: row.description,
+    amount: Number(row.amount),
+    cat: "Gelir",
+    date: row.transaction_date
+  });
+
+
+  closeIncomeModal();
+
+  renderAll();
+
+  notify("Gelir kaydedildi ✓");
+
 }
 
 
-/* =========================================================
-   AI KOÇ
-   ========================================================= */
+/* =========================
+   AI
+========================= */
 
 function askAI(question) {
 
   const input =
-    getEl("aiInput");
+    document.getElementById("aiInput");
 
   if (!input) {
     return;
   }
 
-
   input.value = question;
 
   sendAI();
+
 }
 
 
 async function sendAI() {
 
-  if (!currentUser) {
-
-    notify(
-      "AI Koç için önce giriş yapmalısın."
-    );
-
-    return;
-  }
-
-
   const input =
-    getEl("aiInput");
-
+    document.getElementById("aiInput");
 
   const box =
-    getEl("chatMessages");
+    document.getElementById("chatMessages");
 
 
   if (!input || !box) {
@@ -1546,16 +1174,23 @@ async function sendAI() {
       data: sessionData
     } = await sb.auth.getSession();
 
-
     const session =
       sessionData?.session;
 
 
     if (!session) {
 
-      throw new Error(
-        "Oturum bulunamadı."
-      );
+      document
+        .getElementById("aiTyping")
+        ?.remove();
+
+      box.innerHTML += `
+        <div class="bubble bot">
+          AI kullanmak için giriş yapmalısın.
+        </div>
+      `;
+
+      return;
 
     }
 
@@ -1583,28 +1218,19 @@ async function sendAI() {
 
 
     const result =
-      await response.json()
-        .catch(() => ({}));
+      await response.json();
 
 
-    getEl("aiTyping")
+    document
+      .getElementById("aiTyping")
       ?.remove();
-
-
-    if (!response.ok) {
-
-      throw new Error(
-        result.error ||
-        "AI servisi hata verdi."
-      );
-
-    }
 
 
     box.innerHTML += `
       <div class="bubble bot">
         ${esc(
           result.answer ||
+          result.error ||
           "Yanıt alınamadı."
         )}
       </div>
@@ -1617,42 +1243,31 @@ async function sendAI() {
 
   } catch (error) {
 
-    console.error(
-      "AI ERROR:",
-      error
-    );
+    console.error("AI ERROR:", error);
 
-
-    getEl("aiTyping")
+    document
+      .getElementById("aiTyping")
       ?.remove();
 
 
     box.innerHTML += `
       <div class="bubble bot">
         AI bağlantısında bir sorun oluştu.
-        Biraz sonra tekrar dene.
       </div>
     `;
 
-
-    box.scrollTop =
-      box.scrollHeight;
-
   }
+
 }
 
 
-/* =========================================================
-   FİŞ TARAMA
-   ========================================================= */
+/* =========================
+   FİŞ
+========================= */
 
 function receiptSelected(element) {
 
-  if (
-    !element ||
-    !element.files ||
-    !element.files[0]
-  ) {
+  if (!element.files?.[0]) {
     return;
   }
 
@@ -1662,22 +1277,22 @@ function receiptSelected(element) {
 
 
   const result =
-    getEl("receiptResult");
+    document.getElementById(
+      "receiptResult"
+    );
 
 
   if (result) {
 
     result.innerHTML = `
-      <div
-        style="
-          margin-top:18px;
-          padding:12px;
-          background:#f5f3ff;
-          border-radius:10px;
-          font-size:12px;
-          color:#5148e8;
-        "
-      >
+      <div style="
+        margin-top:18px;
+        padding:12px;
+        background:#f5f3ff;
+        border-radius:10px;
+        font-size:12px;
+        color:#5148e8
+      ">
         ✓ ${esc(file.name)}
         seçildi.
         OCR bağlantısı için hazır.
@@ -1687,206 +1302,149 @@ function receiptSelected(element) {
   }
 
 
-  notify(
-    "Fiş görseli seçildi."
-  );
+  notify("Fiş görseli seçildi.");
+
 }
 
 
-/* =========================================================
-   PRO
-   ========================================================= */
+/* =========================
+   DİĞER
+========================= */
 
 function showPro() {
-
   notify(
-    "Finans Koçu Pro çok yakında aktif."
+    "Pro ödeme ekranı sonraki entegrasyon adımında aktif edilecek."
   );
-
 }
 
-
-/* =========================================================
-   TOAST
-   ========================================================= */
 
 function notify(message) {
 
   const toast =
-    getEl("toast");
-
+    document.getElementById("toast");
 
   if (!toast) {
-
-    console.log(message);
-
     return;
   }
 
 
-  toast.textContent =
-    message;
+  toast.textContent = message;
+
+  toast.classList.add("show");
 
 
-  toast.classList.add(
-    "show"
-  );
+  setTimeout(() => {
 
+    toast.classList.remove("show");
 
-  clearTimeout(
-    notify.timer
-  );
+  }, 3000);
 
-
-  notify.timer =
-    setTimeout(
-      function () {
-
-        toast.classList.remove(
-          "show"
-        );
-
-      },
-      2500
-    );
 }
 
-
-/* =========================================================
-   MOBİL MENÜ
-   ========================================================= */
 
 function toggleSide() {
 
   document
     .querySelector(".sidebar")
-    ?.classList.toggle(
-      "open"
-    );
+    ?.classList.toggle("open");
 
 }
 
 
-/* =========================================================
+/* =========================
    ÇIKIŞ
-   ========================================================= */
+========================= */
 
 async function signOut() {
 
-  try {
-
-    const {
-      error
-    } = await sb.auth.signOut();
+  const {
+    error
+  } = await sb.auth.signOut();
 
 
-    if (error) {
-
-      console.error(
-        "SIGN OUT ERROR:",
-        error
-      );
-
-      notify(
-        "Çıkış yapılamadı."
-      );
-
-      return;
-    }
-
-
-    currentUser = null;
-
-    data.transactions = [];
-
-
-    notify(
-      "Çıkış yapıldı."
-    );
-
-
-  } catch (error) {
+  if (error) {
 
     console.error(
+      "SIGN OUT ERROR:",
       error
     );
 
-    notify(
-      "Çıkış sırasında hata oluştu."
+    return notify(
+      "Çıkış yapılamadı."
     );
 
   }
+
+
+  notify("Çıkış yapıldı.");
+
 }
 
 
-/* =========================================================
+/* =========================
    GİRİŞ / KAYIT
-   ========================================================= */
+========================= */
 
 async function authSubmit() {
 
   const email =
-    getEl("authEmail")
-      ?.value
+    document.getElementById(
+      "authEmail"
+    )?.value
       ?.trim();
 
-
   const password =
-    getEl("authPassword")
-      ?.value || "";
-
+    document.getElementById(
+      "authPassword"
+    )?.value || "";
 
   const name =
-    getEl("authName")
-      ?.value
+    document.getElementById(
+      "authName"
+    )?.value
       ?.trim() || "";
 
-
   const mode =
-    getEl("authMode")
-      ?.value || "login";
+    document.getElementById(
+      "authMode"
+    )?.value || "login";
 
 
   if (!email) {
-
-    notify(
+    return notify(
       "E-posta adresini gir."
     );
-
-    return;
   }
 
 
   if (!password) {
-
-    notify(
+    return notify(
       "Şifreni gir."
     );
-
-    return;
   }
 
 
   if (password.length < 6) {
-
-    notify(
+    return notify(
       "Şifre en az 6 karakter olmalı."
     );
-
-    return;
   }
 
 
   const button =
-    getEl("authSubmit");
+    document.getElementById(
+      "authSubmit"
+    );
+
+
+  const originalText =
+    button?.textContent ||
+    "Giriş Yap";
 
 
   if (button) {
 
     button.disabled = true;
-
-    button.dataset.oldText =
-      button.textContent;
 
     button.textContent =
       mode === "login"
@@ -1901,9 +1459,7 @@ async function authSubmit() {
     let result;
 
 
-    /*
-      GİRİŞ
-    */
+    /* ===== GİRİŞ ===== */
 
     if (mode === "login") {
 
@@ -1916,9 +1472,7 @@ async function authSubmit() {
     }
 
 
-    /*
-      KAYIT
-    */
+    /* ===== KAYIT ===== */
 
     else {
 
@@ -1932,7 +1486,8 @@ async function authSubmit() {
           options: {
             data: {
               full_name:
-                name || email.split("@")[0]
+                name ||
+                email.split("@")[0]
             }
           }
 
@@ -1941,114 +1496,125 @@ async function authSubmit() {
     }
 
 
+    console.log(
+      "SUPABASE AUTH RESULT:",
+      result
+    );
+
+
+    /* ===== HATA ===== */
+
     if (result.error) {
 
       console.error(
-        "AUTH ERROR:",
+        "SUPABASE AUTH ERROR:",
         result.error
       );
 
 
-      let message =
-        result.error.message;
-
-
-      /*
-        Daha anlaşılır Türkçe mesajlar
-      */
-
-      if (
-        message
-          .toLowerCase()
-          .includes("invalid login")
-      ) {
-
-        message =
-          "E-posta veya şifre hatalı.";
-
-      }
-
-
-      if (
-        message
-          .toLowerCase()
-          .includes("email not confirmed")
-      ) {
-
-        message =
-          "E-posta adresini doğrulaman gerekiyor.";
-
-      }
-
-
-      if (
-        message
-          .toLowerCase()
-          .includes("user already registered")
-      ) {
-
-        message =
-          "Bu e-posta ile zaten hesap var. Giriş yapmayı dene.";
-
-      }
-
-
-      notify(message);
-
-      return;
-    }
-
-
-    /*
-      Kayıt başarılı
-    */
-
-    if (
-      mode === "signup" &&
-      !result.data?.session
-    ) {
-
       notify(
-        "Kayıt başarılı. E-postanı doğrulaman gerekiyorsa gelen kutunu kontrol et."
+        result.error.message ||
+        "Kimlik doğrulama hatası."
       );
 
+
       return;
+
     }
 
 
-    /*
-      Giriş başarılı
-    */
+    const user =
+      result.data?.user;
 
-    if (result.data?.session) {
-
-      currentUser =
-        result.data.session.user;
+    const session =
+      result.data?.session;
 
 
-      await loadData();
+    console.log(
+      "SUPABASE USER:",
+      user
+    );
+
+    console.log(
+      "SUPABASE SESSION:",
+      session
+    );
+
+
+    /* ===== BAŞARILI ===== */
+
+    if (user && session) {
+
+      currentUser = user;
+
+
+      try {
+
+        await loadData();
+
+      } catch (error) {
+
+        console.error(
+          "LOAD DATA AFTER AUTH ERROR:",
+          error
+        );
+
+      }
+
 
       showApp();
 
-
       notify(
-        "Giriş başarılı ✓"
+        mode === "login"
+          ? "Giriş başarılı ✓"
+          : "Hesap oluşturuldu ✓"
       );
 
+
+      return;
+
     }
+
+
+    /* ===== KAYIT VAR SESSION YOK ===== */
+
+    if (
+      mode === "signup" &&
+      user &&
+      !session
+    ) {
+
+      notify(
+        "Hesap oluşturuldu. Şimdi giriş yapabilirsin."
+      );
+
+
+      return;
+
+    }
+
+
+    /* ===== SESSION YOK ===== */
+
+    notify(
+      "İşlem tamamlandı fakat oturum oluşturulamadı."
+    );
 
 
   } catch (error) {
 
     console.error(
-      "AUTH SUBMIT ERROR:",
+      "AUTH EXCEPTION:",
       error
     );
 
 
     notify(
-      "İşlem sırasında bir hata oluştu."
+      "Hata: " +
+      (error?.message ||
+        "Bilinmeyen hata")
     );
+
 
   } finally {
 
@@ -2057,28 +1623,25 @@ async function authSubmit() {
       button.disabled = false;
 
       button.textContent =
-        button.dataset.oldText ||
-        (
-          mode === "login"
-            ? "Giriş Yap"
-            : "Kayıt Ol"
-        );
+        originalText;
 
     }
 
   }
+
 }
 
 
-/* =========================================================
+/* =========================
    GİRİŞ / KAYIT MODU
-   ========================================================= */
+========================= */
 
 function toggleAuthMode() {
 
   const mode =
-    getEl("authMode");
-
+    document.getElementById(
+      "authMode"
+    );
 
   if (!mode) {
     return;
@@ -2095,229 +1658,54 @@ function toggleAuthMode() {
       : "login";
 
 
-  const title =
-    getEl("authTitle");
+  const newSignup =
+    mode.value === "signup";
+
+
+  setText(
+    "authTitle",
+    newSignup
+      ? "Hesap oluştur"
+      : "Finans Koçu'na giriş yap"
+  );
 
 
   const nameWrap =
-    getEl("authNameWrap");
-
-
-  const submit =
-    getEl("authSubmit");
-
-
-  const toggle =
-    getEl("authToggle");
-
-
-  if (isLogin) {
-
-    if (title) {
-      title.textContent =
-        "Hesap oluştur";
-    }
-
-    if (nameWrap) {
-      nameWrap.style.display =
-        "block";
-    }
-
-    if (submit) {
-      submit.textContent =
-        "Kayıt Ol";
-    }
-
-    if (toggle) {
-      toggle.textContent =
-        "Zaten hesabın var mı? Giriş yap";
-    }
-
-  } else {
-
-    if (title) {
-      title.textContent =
-        "Finans Koçu'na giriş yap";
-    }
-
-    if (nameWrap) {
-      nameWrap.style.display =
-        "none";
-    }
-
-    if (submit) {
-      submit.textContent =
-        "Giriş Yap";
-    }
-
-    if (toggle) {
-      toggle.textContent =
-        "Hesabın yok mu? Kayıt ol";
-    }
-
-  }
-}
-
-
-/* =========================================================
-   ARAMA / FİLTRE
-   ========================================================= */
-
-function setupSearch() {
-
-  const search =
-    getEl("search");
-
-  const filter =
-    getEl("filter");
-
-
-  if (search) {
-
-    search.addEventListener(
-      "input",
-      renderTransactions
+    document.getElementById(
+      "authNameWrap"
     );
 
-  }
 
+  if (nameWrap) {
 
-  if (filter) {
-
-    filter.addEventListener(
-      "change",
-      renderTransactions
-    );
+    nameWrap.style.display =
+      newSignup
+        ? "block"
+        : "none";
 
   }
-}
 
 
-/* =========================================================
-   MODAL DIŞINA TIKLAYINCA KAPAT
-   ========================================================= */
+  setText(
+    "authSubmit",
+    newSignup
+      ? "Kayıt Ol"
+      : "Giriş Yap"
+  );
 
-function setupModalClose() {
 
-  document.addEventListener(
-    "click",
-    function (event) {
-
-      if (
-        event.target?.classList?.contains(
-          "modal"
-        )
-      ) {
-
-        event.target.classList.remove(
-          "show"
-        );
-
-      }
-
-    }
+  setText(
+    "authToggle",
+    newSignup
+      ? "Zaten hesabın var mı? Giriş yap"
+      : "Hesabın yok mu? Kayıt ol"
   );
 
 }
 
 
-/* =========================================================
-   ESC TUŞU
-   ========================================================= */
-
-function setupKeyboard() {
-
-  document.addEventListener(
-    "keydown",
-    function (event) {
-
-      if (event.key !== "Escape") {
-        return;
-      }
-
-
-      document
-        .querySelectorAll(".modal.show")
-        .forEach(modal => {
-          modal.classList.remove(
-            "show"
-          );
-        });
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   WINDOW'A BAĞLA
-   =========================================================
-
-   Bu bölüm ÇOK ÖNEMLİ.
-
-   HTML içerisinde onclick="authSubmit()"
-   gibi kullanımlar varsa çalışmasını garanti eder.
-*/
-
-window.openModal = openModal;
-window.closeModal = closeModal;
-
-window.openIncomeModal =
-  openIncomeModal;
-
-window.closeIncomeModal =
-  closeIncomeModal;
-
-window.addExpense =
-  addExpense;
-
-window.addIncome =
-  addIncome;
-
-window.sendAI =
-  sendAI;
-
-window.askAI =
-  askAI;
-
-window.receiptSelected =
-  receiptSelected;
-
-window.showPro =
-  showPro;
-
-window.toggleSide =
-  toggleSide;
-
-window.signOut =
-  signOut;
-
-window.authSubmit =
-  authSubmit;
-
-window.toggleAuthMode =
-  toggleAuthMode;
-
-window.switchView =
-  switchView;
-
-
-/* =========================================================
+/* =========================
    BAŞLAT
-   ========================================================= */
+========================= */
 
-document.addEventListener(
-  "DOMContentLoaded",
-  function () {
-
-    setupSearch();
-
-    setupModalClose();
-
-    setupKeyboard();
-
-    init();
-
-  }
-);
+init();
