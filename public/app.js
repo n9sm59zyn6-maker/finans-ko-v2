@@ -1,95 +1,126 @@
-const SUPABASE_URL = "https://aludzquzksppncjncklhn.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsdWR6cXV6a3NwbmNqbmNrbGhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0MDQxMjQsImV4cCI6MjEwNjk4MDEyNH0.6miEkb9_hxo17cRL6rpFaDUCP_BgEPzq1RkYPLPAwW0";
+const SUPABASE_URL="https://aludzquzksppncjncklhn.supabase.co";
+const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsdWR6cXV6a3NwbmNqbmNrbGhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0MDQxMjQsImV4cCI6MjEwNjk4MDEyNH0.6miEkb9_hxo17cRL6rpFaDUCP_BgEPzq1RkYPLPAwW0";
 
-const sb = window.supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY
-);
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 
-const cats = [
-  "Yemek & İçme",
-  "Market",
-  "Ulaşım",
-  "Alışveriş",
-  "Faturalar",
-  "Eğlence",
-  "Sağlık",
-  "Diğer"
+const cats=[
+"Yemek & İçme","Market","Ulaşım","Alışveriş",
+"Faturalar","Eğlence","Sağlık","Diğer"
 ];
 
-const icons = {
-  "Yemek & İçme": "🍔",
-  "Market": "🛒",
-  "Ulaşım": "🚗",
-  "Alışveriş": "🛍️",
-  "Faturalar": "💡",
-  "Eğlence": "🎮",
-  "Sağlık": "💊",
-  "Diğer": "📦",
-  "Gelir": "💰"
+const icons={
+"Yemek & İçme":"🍔",
+"Market":"🛒",
+"Ulaşım":"🚗",
+"Alışveriş":"🛍️",
+"Faturalar":"💡",
+"Eğlence":"🎮",
+"Sağlık":"💊",
+"Diğer":"📦",
+"Gelir":"💰"
 };
 
-const colors = [
-  "#635bff",
-  "#12b76a",
-  "#f79009",
-  "#f04438",
-  "#7a5af8",
-  "#06aed4",
-  "#ec4a0a",
-  "#98a2b3"
+const colors=[
+"#635bff","#12b76a","#f79009","#f04438",
+"#7a5af8","#06aed4","#ec4a0a","#98a2b3"
 ];
 
-let data = {
-  income: [],
-  transactions: [],
-  goal: 10000
+let data={
+income:[],
+transactions:[],
+goal:10000
 };
 
-let currentUser = null;
+let currentUser=null;
+let authBusy=false;
+let initialized=false;
 
 
 /* =========================
-   GENEL
+   YARDIMCI
 ========================= */
 
-function money(n) {
-  return new Intl.NumberFormat("tr-TR", {
-    style: "currency",
-    currency: "TRY",
-    maximumFractionDigits: 0
-  }).format(Number(n) || 0);
+function money(n){
+return new Intl.NumberFormat("tr-TR",{
+style:"currency",
+currency:"TRY",
+maximumFractionDigits:0
+}).format(Number(n)||0);
+}
+
+function setText(id,value){
+const el=document.getElementById(id);
+if(el)el.textContent=value;
+}
+
+function esc(s){
+return String(s??"").replace(/[&<>"']/g,m=>({
+"&":"&amp;",
+"<":"&lt;",
+">":"&gt;",
+'"':"&quot;",
+"'":"&#039;"
+}[m]));
+}
+
+function totals(){
+const income=data.transactions
+.filter(x=>x.type==="income")
+.reduce((a,x)=>a+Number(x.amount),0);
+
+const expense=data.transactions
+.filter(x=>x.type==="expense")
+.reduce((a,x)=>a+Number(x.amount),0);
+
+return{
+income,
+expense,
+saving:income-expense
+};
 }
 
 
-function totals() {
-  const income = data.transactions
-    .filter(x => x.type === "income")
-    .reduce((a, x) => a + Number(x.amount), 0);
+/* =========================
+   AUTH MESAJ
+========================= */
 
-  const expense = data.transactions
-    .filter(x => x.type === "expense")
-    .reduce((a, x) => a + Number(x.amount), 0);
+function authMessage(message,type="error"){
 
-  return {
-    income,
-    expense,
-    saving: income - expense
-  };
+let box=document.getElementById("authMessage");
+
+if(!box){
+const parent=document.querySelector(".auth-box");
+if(!parent)return;
+
+box=document.createElement("div");
+box.id="authMessage";
+
+box.style.cssText=
+"margin-top:12px;padding:11px 12px;border-radius:10px;font-size:13px;line-height:1.45;display:none;";
+
+const toggle=document.getElementById("authToggle");
+
+if(toggle)parent.insertBefore(box,toggle);
+else parent.appendChild(box);
 }
 
+box.textContent=message||"";
+box.style.display=message?"block":"none";
 
-function esc(s) {
-  return String(s ?? "").replace(
-    /[&<>"']/g,
-    m => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#039;"
-    }[m])
-  );
+box.style.background=
+type==="success"?"#ecfdf3":"#fef3f2";
+
+box.style.color=
+type==="success"?"#027a48":"#b42318";
+
+box.style.border=
+type==="success"
+?"1px solid #abefc6"
+:"1px solid #fecdca";
+}
+
+function clearAuthMessage(){
+authMessage("");
 }
 
 
@@ -97,91 +128,103 @@ function esc(s) {
    BAŞLAT
 ========================= */
 
-async function init() {
+async function init(){
 
-  document.querySelectorAll(".nav").forEach(button => {
-    button.onclick = () => switchView(button.dataset.view);
-  });
+document.querySelectorAll(".nav").forEach(btn=>{
+btn.onclick=()=>switchView(btn.dataset.view);
+});
 
-  const categorySelect = document.getElementById("mCat");
+const cat=document.getElementById("mCat");
 
-  if (categorySelect) {
-    categorySelect.innerHTML = cats
-      .map(c => `<option>${c}</option>`)
-      .join("");
-  }
+if(cat){
+cat.innerHTML=cats.map(x=>`<option>${x}</option>`).join("");
+}
 
-  const dateInput = document.getElementById("mDate");
+const date=document.getElementById("mDate");
 
-  if (dateInput) {
-    dateInput.value = new Date()
-      .toISOString()
-      .slice(0, 10);
-  }
+if(date){
+date.value=new Date().toISOString().slice(0,10);
+}
 
-  try {
+try{
 
-    const {
-      data: sessionData,
-      error
-    } = await sb.auth.getSession();
+const result=await sb.auth.getSession();
 
-    if (error) {
-      console.error("SESSION ERROR:", error);
-      showAuth();
-      return;
-    }
+if(result.error){
+console.error(result.error);
+currentUser=null;
+showAuth();
+}else if(result.data?.session?.user){
 
-    const session = sessionData?.session;
+currentUser=result.data.session.user;
 
-    if (session?.user) {
+await loadData();
 
-      currentUser = session.user;
+showApp();
 
-      await loadData();
+}else{
 
-      showApp();
+currentUser=null;
+showAuth();
 
-    } else {
+}
 
-      showAuth();
+}catch(error){
 
-    }
+console.error("INIT ERROR:",error);
+currentUser=null;
+showAuth();
 
-  } catch (error) {
+}finally{
 
-    console.error("INIT ERROR:", error);
+initialized=true;
 
-    showAuth();
-
-  }
+}
 
 
-  sb.auth.onAuthStateChange(async (event, session) => {
+/*
+  BURASI ÖNEMLİ.
+  onAuthStateChange içerisinde await kullanmıyoruz.
+*/
 
-    console.log("AUTH EVENT:", event);
+sb.auth.onAuthStateChange((event,session)=>{
 
-    if (session?.user) {
+console.log("AUTH EVENT:",event);
 
-      currentUser = session.user;
+if(session?.user){
 
-      try {
-        await loadData();
-      } catch (error) {
-        console.error("LOAD DATA ERROR:", error);
-      }
+currentUser=session.user;
 
-      showApp();
+if(
+event==="SIGNED_IN"||
+event==="INITIAL_SESSION"||
+event==="TOKEN_REFRESHED"
+){
 
-    } else {
+Promise.resolve(loadData())
+.catch(error=>{
+console.error("LOAD DATA ERROR:",error);
+})
+.finally(()=>{
+showApp();
+});
 
-      currentUser = null;
+}
 
-      showAuth();
+}else if(
+event==="SIGNED_OUT"||
+event==="INITIAL_SESSION"
+){
 
-    }
+currentUser=null;
 
-  });
+if(initialized){
+showAuth();
+}
+
+}
+
+});
 
 }
 
@@ -190,35 +233,28 @@ async function init() {
    AUTH EKRANI
 ========================= */
 
-function showAuth() {
+function showAuth(){
 
-  const modal = document.getElementById("authModal");
-  const main = document.querySelector("main");
+const modal=document.getElementById("authModal");
+const main=document.querySelector("main");
 
-  if (modal) {
-    modal.classList.add("show");
-  }
+if(modal)modal.classList.add("show");
 
-  if (main) {
-    main.style.filter = "blur(4px)";
-  }
+if(main)main.style.filter="blur(4px)";
+
 }
 
+function showApp(){
 
-function showApp() {
+const modal=document.getElementById("authModal");
+const main=document.querySelector("main");
 
-  const modal = document.getElementById("authModal");
-  const main = document.querySelector("main");
+if(modal)modal.classList.remove("show");
 
-  if (modal) {
-    modal.classList.remove("show");
-  }
+if(main)main.style.filter="none";
 
-  if (main) {
-    main.style.filter = "none";
-  }
+renderAll();
 
-  renderAll();
 }
 
 
@@ -226,113 +262,107 @@ function showApp() {
    VERİLERİ YÜKLE
 ========================= */
 
-async function loadData() {
+async function loadData(){
 
-  if (!currentUser) {
-    return;
-  }
+if(!currentUser)return;
 
-  const [
-    transactionsResult,
-    goalsResult
-  ] = await Promise.all([
+const [
+transactionsResult,
+goalsResult
+]=await Promise.all([
 
-    sb
-      .from("transactions")
-      .select(
-        "id,type,description,amount,category,transaction_date,created_at"
-      )
-      .order("transaction_date", {
-        ascending: false
-      }),
+sb
+.from("transactions")
+.select(
+"id,type,description,amount,category,transaction_date,created_at"
+)
+.eq("user_id",currentUser.id)
+.order("transaction_date",{ascending:false}),
 
-    sb
-      .from("goals")
-      .select(
-        "id,target_amount,current_amount,created_at"
-      )
-      .order("created_at", {
-        ascending: true
-      })
-      .limit(1)
+sb
+.from("goals")
+.select(
+"id,target_amount,current_amount,created_at"
+)
+.eq("user_id",currentUser.id)
+.order("created_at",{ascending:true})
+.limit(1)
 
-  ]);
+]);
 
+if(transactionsResult.error){
 
-  const tx = transactionsResult.data;
-  const txError = transactionsResult.error;
+console.error(
+"TRANSACTIONS ERROR:",
+transactionsResult.error
+);
 
-  const goals = goalsResult.data;
-  const goalError = goalsResult.error;
+data.transactions=[];
 
+}else{
 
-  if (txError) {
+data.transactions=(transactionsResult.data||[]).map(x=>({
 
-    console.error("TRANSACTIONS ERROR:", txError);
+id:x.id,
+type:x.type,
+desc:x.description,
+amount:Number(x.amount),
+cat:x.category,
+date:x.transaction_date
 
-    data.transactions = [];
+}));
 
-  } else {
-
-    data.transactions = (tx || []).map(x => ({
-      id: x.id,
-      type: x.type,
-      desc: x.description,
-      amount: Number(x.amount),
-      cat: x.category,
-      date: x.transaction_date
-    }));
-
-  }
+}
 
 
-  if (goalError) {
+if(goalsResult.error){
 
-    console.error("GOALS ERROR:", goalError);
+console.error(
+"GOALS ERROR:",
+goalsResult.error
+);
 
-    data.goal = 10000;
+data.goal=10000;
 
-  } else {
+}else{
 
-    const goal = goals?.[0];
+const goal=goalsResult.data?.[0];
 
-    data.goal = goal
-      ? Number(goal.target_amount)
-      : 10000;
+data.goal=goal
+?Number(goal.target_amount)
+:10000;
 
-    if (!goal) {
+if(!goal){
 
-      const { error } = await sb
-        .from("goals")
-        .insert({
-          user_id: currentUser.id,
-          name: "Aylık tasarruf hedefi",
-          target_amount: 10000,
-          current_amount: 0
-        });
+const {error}=await sb
+.from("goals")
+.insert({
+user_id:currentUser.id,
+name:"Aylık tasarruf hedefi",
+target_amount:10000,
+current_amount:0
+});
 
-      if (error) {
-        console.error("GOAL CREATE ERROR:", error);
-      }
+if(error){
+console.error("GOAL CREATE ERROR:",error);
+}
 
-    }
+}
 
-  }
-
-
-  const name =
-    currentUser.user_metadata?.full_name ||
-    currentUser.email?.split("@")[0] ||
-    "Kullanıcı";
+}
 
 
-  const avatar = document.querySelector(".avatar");
+const name=
+currentUser.user_metadata?.full_name||
+currentUser.email?.split("@")[0]||
+"Kullanıcı";
 
-  if (avatar) {
-    avatar.textContent = name
-      .slice(0, 1)
-      .toUpperCase();
-  }
+const avatar=document.querySelector(".avatar");
+
+if(avatar){
+avatar.textContent=
+name.slice(0,1).toUpperCase();
+}
 
 }
 
@@ -341,63 +371,49 @@ async function loadData() {
    DASHBOARD
 ========================= */
 
-function renderAll() {
+function renderAll(){
 
-  const t = totals();
+const t=totals();
 
+setText("available",money(t.saving));
+setText("income",money(t.income));
+setText("expense",money(t.expense));
+setText("saving",money(t.saving));
 
-  setText("available", money(t.saving));
-  setText("income", money(t.income));
-  setText("expense", money(t.expense));
-  setText("saving", money(t.saving));
+setText(
+"savingRate",
+(t.income?
+Math.round((t.saving/t.income)*100):0)+
+"% tasarruf"
+);
 
-  setText(
-    "savingRate",
-    (t.income
-      ? Math.round((t.saving / t.income) * 100)
-      : 0) + "% tasarruf"
-  );
+setText("goal",money(data.goal));
 
-  setText("goal", money(data.goal));
+const goalRate=data.goal?
+Math.round((t.saving/data.goal)*100):0;
 
-  const goalRate = data.goal
-    ? Math.round((t.saving / data.goal) * 100)
-    : 0;
+setText(
+"goalRate",
+Math.min(100,Math.max(0,goalRate))+
+"% tamamlandı"
+);
 
-  setText(
-    "goalRate",
-    Math.min(100, Math.max(0, goalRate)) +
-      "% tamamlandı"
-  );
+setText("budgetIncome",money(t.income));
+setText("budgetExpense",money(t.expense));
+setText("budgetLeft",money(t.saving));
 
-  setText("budgetIncome", money(t.income));
-  setText("budgetExpense", money(t.expense));
-  setText("budgetLeft", money(t.saving));
+setText(
+"budgetStatus",
+t.saving>=data.goal
+?"🎯 Aylık hedefindesin."
+:"Hedefe yaklaşmak için harcamalarını azaltabilirsin."
+);
 
-  setText(
-    "budgetStatus",
-    t.saving >= data.goal
-      ? "🎯 Aylık hedefindesin."
-      : "Hedefe yaklaşmak için harcamalarını azaltabilirsin."
-  );
-
-
-  drawDonut();
-  renderRecent();
-  renderTransactions();
-  renderBudget();
-  renderInsight();
-
-}
-
-
-function setText(id, value) {
-
-  const el = document.getElementById(id);
-
-  if (el) {
-    el.textContent = value;
-  }
+drawDonut();
+renderRecent();
+renderTransactions();
+renderBudget();
+renderInsight();
 
 }
 
@@ -406,270 +422,191 @@ function setText(id, value) {
    DONUT
 ========================= */
 
-function drawDonut() {
+function drawDonut(){
 
-  const canvas = document.getElementById("donut");
+const canvas=document.getElementById("donut");
 
-  if (!canvas) {
-    return;
-  }
+if(!canvas)return;
 
-  const ctx = canvas.getContext("2d");
+const ctx=canvas.getContext("2d");
+const d=window.devicePixelRatio||1;
 
-  const d = window.devicePixelRatio || 1;
+canvas.width=190*d;
+canvas.height=190*d;
 
-  canvas.width = 190 * d;
-  canvas.height = 190 * d;
+ctx.setTransform(d,0,0,d,0,0);
 
-  ctx.setTransform(d, 0, 0, d, 0, 0);
+const sums={};
 
-  let sums = {};
+data.transactions
+.filter(x=>x.type==="expense")
+.forEach(x=>{
+sums[x.cat]=(sums[x.cat]||0)+Number(x.amount);
+});
 
-  data.transactions
-    .filter(x => x.type === "expense")
-    .forEach(x => {
-      sums[x.cat] =
-        (sums[x.cat] || 0) +
-        Number(x.amount);
-    });
+const arr=Object.entries(sums)
+.sort((a,b)=>b[1]-a[1]);
 
+const total=arr.reduce((a,x)=>a+x[1],0);
 
-  const arr = Object.entries(sums)
-    .sort((a, b) => b[1] - a[1]);
+let start=-Math.PI/2;
 
+ctx.clearRect(0,0,190,190);
+ctx.lineWidth=24;
 
-  const total = arr.reduce(
-    (a, x) => a + x[1],
-    0
-  );
+if(total){
 
+arr.forEach(([cat,value],i)=>{
 
-  let start = -Math.PI / 2;
+const end=start+(value/total)*Math.PI*2;
 
-  ctx.clearRect(0, 0, 190, 190);
+ctx.strokeStyle=colors[i%colors.length];
 
-  ctx.lineWidth = 24;
+ctx.beginPath();
 
+ctx.arc(
+95,
+95,
+65,
+start,
+end-.03
+);
 
-  if (total) {
+ctx.stroke();
 
-    arr.forEach(([cat, value], i) => {
+start=end;
 
-      const end =
-        start +
-        (value / total) *
-          Math.PI *
-          2;
+});
 
-      ctx.strokeStyle =
-        colors[i % colors.length];
+}
 
-      ctx.beginPath();
+const center=document.getElementById("donutCenter");
 
-      ctx.arc(
-        95,
-        95,
-        65,
-        start,
-        end - 0.03
-      );
+if(center){
 
-      ctx.stroke();
+center.innerHTML=`
+<div>
+<span>${money(total)}</span>
+<small style="
+display:block;
+color:#667085;
+font-size:10px
+">Toplam gider</small>
+</div>
+`;
 
-      start = end;
+}
 
-    });
+const legend=document.getElementById("legend");
 
-  }
+if(legend){
 
+legend.innerHTML=arr.length
+?arr.map(([category,value],i)=>`
+<span class="legend-item">
+<i class="dot"
+style="background:${colors[i%colors.length]}"></i>
+${esc(category)}
+${money(value)}
+</span>
+`).join("")
+:"<span class='muted'>Henüz gider yok.</span>";
 
-  const center =
-    document.getElementById("donutCenter");
-
-  if (center) {
-
-    center.innerHTML = `
-      <div>
-        <span>${money(total)}</span>
-        <small style="
-          display:block;
-          color:#667085;
-          font-size:10px
-        ">
-          Toplam gider
-        </small>
-      </div>
-    `;
-
-  }
-
-
-  const legend =
-    document.getElementById("legend");
-
-  if (legend) {
-
-    legend.innerHTML =
-      arr.length
-        ? arr
-            .map(
-              ([category, value], i) => `
-                <span class="legend-item">
-                  <i
-                    class="dot"
-                    style="
-                      background:${
-                        colors[i % colors.length]
-                      }
-                    "
-                  ></i>
-                  ${esc(category)}
-                  ${money(value)}
-                </span>
-              `
-            )
-            .join("")
-        : "<span class='muted'>Henüz gider yok.</span>";
-
-  }
+}
 
 }
 
 
 /* =========================
-   SON HAREKETLER
+   HAREKETLER
 ========================= */
 
-function renderRecent() {
+function txHTML(x){
 
-  const element =
-    document.getElementById("recent");
+return`
+<div class="transaction">
 
-  if (!element) {
-    return;
-  }
+<div class="tx-left">
 
-  const transactions = [
-    ...data.transactions
-  ]
-    .sort((a, b) =>
-      String(b.date).localeCompare(
-        String(a.date)
-      )
-    )
-    .slice(0, 5);
+<div class="tx-icon">
+${icons[x.type==="income"?"Gelir":x.cat]||"📦"}
+</div>
 
+<div>
 
-  element.innerHTML =
-    transactions.length
-      ? transactions.map(txHTML).join("")
-      : "<p class='muted'>Henüz işlem bulunamadı.</p>";
+<div class="tx-title">
+${esc(x.desc)}
+</div>
+
+<div class="tx-meta">
+${x.type==="income"?"Gelir":esc(x.cat)}
+•
+${esc(x.date)}
+</div>
+
+</div>
+
+</div>
+
+<div class="amount ${x.type}">
+${x.type==="income"?"+":"−"}
+${money(x.amount)}
+</div>
+
+</div>
+`;
 
 }
 
+function renderRecent(){
 
-/* =========================
-   TRANSACTION HTML
-========================= */
+const el=document.getElementById("recent");
 
-function txHTML(x) {
+if(!el)return;
 
-  return `
-    <div class="transaction">
+const transactions=[...data.transactions]
+.sort((a,b)=>String(b.date).localeCompare(String(a.date)))
+.slice(0,5);
 
-      <div class="tx-left">
-
-        <div class="tx-icon">
-          ${
-            icons[
-              x.type === "income"
-                ? "Gelir"
-                : x.cat
-            ] || "📦"
-          }
-        </div>
-
-        <div>
-
-          <div class="tx-title">
-            ${esc(x.desc)}
-          </div>
-
-          <div class="tx-meta">
-            ${
-              x.type === "income"
-                ? "Gelir"
-                : esc(x.cat)
-            }
-            •
-            ${esc(x.date)}
-          </div>
-
-        </div>
-
-      </div>
-
-      <div class="amount ${x.type}">
-        ${x.type === "income" ? "+" : "−"}
-        ${money(x.amount)}
-      </div>
-
-    </div>
-  `;
+el.innerHTML=transactions.length
+?transactions.map(txHTML).join("")
+:"<p class='muted'>Henüz işlem bulunamadı.</p>";
 
 }
 
+function renderTransactions(){
 
-/* =========================
-   TÜM HAREKETLER
-========================= */
+const el=document.getElementById("allTransactions");
 
-function renderTransactions() {
+if(!el)return;
 
-  const element =
-    document.getElementById("allTransactions");
+const search=
+document.getElementById("search")?.value?.toLowerCase()||"";
 
-  if (!element) {
-    return;
-  }
+const filter=
+document.getElementById("filter")?.value||"all";
 
+const transactions=data.transactions
+.filter(x=>{
 
-  const search =
-    document.getElementById("search")?.value
-      ?.toLowerCase() || "";
+const typeOK=
+filter==="all"||x.type===filter;
 
-  const filter =
-    document.getElementById("filter")?.value ||
-    "all";
+const searchOK=
+`${x.desc} ${x.cat}`
+.toLowerCase()
+.includes(search);
 
+return typeOK&&searchOK;
 
-  const transactions =
-    data.transactions
-      .filter(x => {
+})
+.sort((a,b)=>
+String(b.date).localeCompare(String(a.date))
+);
 
-        const matchesType =
-          filter === "all" ||
-          x.type === filter;
-
-        const matchesSearch =
-          `${x.desc} ${x.cat}`
-            .toLowerCase()
-            .includes(search);
-
-        return matchesType && matchesSearch;
-
-      })
-      .sort((a, b) =>
-        String(b.date).localeCompare(
-          String(a.date)
-        )
-      );
-
-
-  element.innerHTML =
-    transactions.length
-      ? transactions.map(txHTML).join("")
-      : "<p class='muted'>Henüz işlem bulunamadı.</p>";
+el.innerHTML=transactions.length
+?transactions.map(txHTML).join("")
+:"<p class='muted'>Henüz işlem bulunamadı.</p>";
 
 }
 
@@ -678,425 +615,70 @@ function renderTransactions() {
    BÜTÇE
 ========================= */
 
-function renderBudget() {
+function renderBudget(){
 
-  const element =
-    document.getElementById("budgetBars");
+const el=document.getElementById("budgetBars");
 
-  if (!element) {
-    return;
-  }
+if(!el)return;
 
+const sums={};
 
-  let sums = {};
+data.transactions
+.filter(x=>x.type==="expense")
+.forEach(x=>{
+sums[x.cat]=(sums[x.cat]||0)+Number(x.amount);
+});
 
-  data.transactions
-    .filter(x => x.type === "expense")
-    .forEach(x => {
+const limits={
+"Yemek & İçme":5000,
+"Market":4000,
+"Ulaşım":3500,
+"Alışveriş":4000,
+"Faturalar":3000,
+"Eğlence":2000,
+"Sağlık":1500,
+"Diğer":2000
+};
 
-      sums[x.cat] =
-        (sums[x.cat] || 0) +
-        Number(x.amount);
+el.innerHTML=cats.map(category=>{
 
-    });
+const value=sums[category]||0;
+const limit=limits[category];
 
+const percent=Math.min(
+100,
+(value/limit)*100
+);
 
-  const limits = {
-    "Yemek & İçme": 5000,
-    "Market": 4000,
-    "Ulaşım": 3500,
-    "Alışveriş": 4000,
-    "Faturalar": 3000,
-    "Eğlence": 2000,
-    "Sağlık": 1500,
-    "Diğer": 2000
-  };
+return`
+<div class="budget-row">
 
+<div class="row-head">
 
-  element.innerHTML =
-    cats
-      .map((category, i) => {
+<span>
+${icons[category]}
+${category}
+</span>
 
-        const value =
-          sums[category] || 0;
+<span>
+${money(value)}
+/
+${money(limit)}
+</span>
 
-        const limit =
-          limits[category];
+</div>
 
-        const percent =
-          Math.min(
-            100,
-            (value / limit) * 100
-          );
+<div class="bar">
 
+<div class="fill"
+style="width:${percent}%"></div>
 
-        return `
-          <div class="budget-row">
+</div>
 
-            <div class="row-head">
+</div>
+`;
 
-              <span>
-                ${icons[category]}
-                ${category}
-              </span>
-
-              <span>
-                ${money(value)}
-                /
-                ${money(limit)}
-              </span>
-
-            </div>
-
-            <div class="bar">
-
-              <div
-                class="fill"
-                style="
-                  width:${percent}%
-                "
-              ></div>
-
-            </div>
-
-          </div>
-        `;
-
-      })
-      .join("");
-
-}
-
-
-/* =========================
-   AI INSIGHT
-========================= */
-
-function renderInsight() {
-
-  const t = totals();
-
-  const expenses =
-    data.transactions.filter(
-      x => x.type === "expense"
-    );
-
-
-  let sums = {};
-
-  expenses.forEach(x => {
-
-    sums[x.cat] =
-      (sums[x.cat] || 0) +
-      Number(x.amount);
-
-  });
-
-
-  const top =
-    Object.entries(sums)
-      .sort((a, b) => b[1] - a[1])[0];
-
-
-  const title =
-    document.getElementById("insightTitle");
-
-  const text =
-    document.getElementById("insightText");
-
-
-  if (!title || !text) {
-    return;
-  }
-
-
-  if (top) {
-
-    title.textContent =
-      `${top[0]} en büyük harcama kalemin.`;
-
-    text.textContent =
-      `${money(top[1])} harcadın. ` +
-      `Gelirinin %${
-        t.income
-          ? Math.round(
-              (top[1] / t.income) * 100
-            )
-          : 0
-      }'i bu kategoriye gidiyor. ` +
-      `Tasarruf hedefin ${money(data.goal)}.`;
-
-  } else {
-
-    title.textContent =
-      "Henüz yeterli veri yok.";
-
-    text.textContent =
-      "Birkaç işlem eklediğinde sana kişisel bir analiz sunacağım.";
-
-  }
-
-}
-
-
-/* =========================
-   SAYFA DEĞİŞTİR
-========================= */
-
-function switchView(view) {
-
-  document
-    .querySelectorAll(".view")
-    .forEach(x =>
-      x.classList.remove("active-view")
-    );
-
-
-  const target =
-    document.getElementById(view);
-
-  if (target) {
-    target.classList.add("active-view");
-  }
-
-
-  document
-    .querySelectorAll(".nav")
-    .forEach(x =>
-      x.classList.toggle(
-        "active",
-        x.dataset.view === view
-      )
-    );
-
-
-  const names = {
-    dashboard: "Genel Bakış",
-    transactions: "Hareketler",
-    budget: "Bütçe",
-    ai: "AI Koç",
-    receipt: "Fiş Tara"
-  };
-
-
-  setText(
-    "pageTitle",
-    names[view] || "Finans Koçu"
-  );
-
-
-  if (window.innerWidth < 901) {
-
-    document
-      .querySelector(".sidebar")
-      ?.classList.remove("open");
-
-  }
-
-}
-
-
-/* =========================
-   MODALLAR
-========================= */
-
-function openModal() {
-  document
-    .getElementById("modal")
-    ?.classList.add("show");
-}
-
-
-function closeModal() {
-  document
-    .getElementById("modal")
-    ?.classList.remove("show");
-}
-
-
-function openIncomeModal() {
-  document
-    .getElementById("incomeModal")
-    ?.classList.add("show");
-}
-
-
-function closeIncomeModal() {
-  document
-    .getElementById("incomeModal")
-    ?.classList.remove("show");
-}
-
-
-/* =========================
-   HARCAMA EKLE
-========================= */
-
-async function addExpense() {
-
-  if (!currentUser) {
-    return notify("Önce giriş yapmalısın.");
-  }
-
-
-  const desc =
-    document.getElementById("mDesc")
-      ?.value
-      ?.trim();
-
-  const amount =
-    Number(
-      document.getElementById("mAmount")
-        ?.value
-    );
-
-  const category =
-    document.getElementById("mCat")
-      ?.value;
-
-  const date =
-    document.getElementById("mDate")
-      ?.value;
-
-
-  if (!desc || !amount) {
-    return notify(
-      "Açıklama ve tutar gerekli."
-    );
-  }
-
-
-  const {
-    data: row,
-    error
-  } = await sb
-    .from("transactions")
-    .insert({
-      user_id: currentUser.id,
-      type: "expense",
-      description: desc,
-      amount,
-      category,
-      transaction_date: date
-    })
-    .select()
-    .single();
-
-
-  if (error) {
-
-    console.error("EXPENSE ERROR:", error);
-
-    return notify(
-      "Kaydedilemedi: " +
-      error.message
-    );
-
-  }
-
-
-  data.transactions.unshift({
-    id: row.id,
-    type: row.type,
-    desc: row.description,
-    amount: Number(row.amount),
-    cat: row.category,
-    date: row.transaction_date
-  });
-
-
-  closeModal();
-
-  document.getElementById("mDesc").value = "";
-  document.getElementById("mAmount").value = "";
-
-  renderAll();
-
-  notify("Harcama kaydedildi ✓");
-
-}
-
-
-/* =========================
-   GELİR EKLE
-========================= */
-
-async function addIncome() {
-
-  if (!currentUser) {
-    return notify("Önce giriş yapmalısın.");
-  }
-
-
-  const desc =
-    document.getElementById("iDesc")
-      ?.value
-      ?.trim();
-
-  const amount =
-    Number(
-      document.getElementById("iAmount")
-        ?.value
-    );
-
-
-  if (!desc || !amount) {
-    return notify(
-      "Açıklama ve tutar gerekli."
-    );
-  }
-
-
-  const date =
-    new Date()
-      .toISOString()
-      .slice(0, 10);
-
-
-  const {
-    data: row,
-    error
-  } = await sb
-    .from("transactions")
-    .insert({
-      user_id: currentUser.id,
-      type: "income",
-      description: desc,
-      amount,
-      category: "Gelir",
-      transaction_date: date
-    })
-    .select()
-    .single();
-
-
-  if (error) {
-
-    console.error("INCOME ERROR:", error);
-
-    return notify(
-      "Kaydedilemedi: " +
-      error.message
-    );
-
-  }
-
-
-  data.transactions.unshift({
-    id: row.id,
-    type: row.type,
-    desc: row.description,
-    amount: Number(row.amount),
-    cat: "Gelir",
-    date: row.transaction_date
-  });
-
-
-  closeIncomeModal();
-
-  renderAll();
-
-  notify("Gelir kaydedildi ✓");
+}).join("");
 
 }
 
@@ -1105,158 +687,348 @@ async function addIncome() {
    AI
 ========================= */
 
-function askAI(question) {
+function renderInsight(){
 
-  const input =
-    document.getElementById("aiInput");
+const t=totals();
 
-  if (!input) {
-    return;
-  }
+const sums={};
 
-  input.value = question;
+data.transactions
+.filter(x=>x.type==="expense")
+.forEach(x=>{
+sums[x.cat]=(sums[x.cat]||0)+Number(x.amount);
+});
 
-  sendAI();
+const top=Object.entries(sums)
+.sort((a,b)=>b[1]-a[1])[0];
+
+const title=document.getElementById("insightTitle");
+const text=document.getElementById("insightText");
+
+if(!title||!text)return;
+
+if(top){
+
+title.textContent=
+`${top[0]} en büyük harcama kalemin.`;
+
+text.textContent=
+`${money(top[1])} harcadın. `+
+`Gelirinin %${
+t.income?
+Math.round((top[1]/t.income)*100):0
+}'i bu kategoriye gidiyor. `+
+`Tasarruf hedefin ${money(data.goal)}.`;
+
+}else{
+
+title.textContent=
+"Henüz yeterli veri yok.";
+
+text.textContent=
+"Birkaç işlem eklediğinde sana kişisel bir analiz sunacağım.";
+
+}
+
+}
+
+function askAI(question){
+
+const input=document.getElementById("aiInput");
+
+if(!input)return;
+
+input.value=question;
+
+sendAI();
+
+}
+
+async function sendAI(){
+
+const input=document.getElementById("aiInput");
+const box=document.getElementById("chatMessages");
+
+if(!input||!box)return;
+
+const question=input.value.trim();
+
+if(!question)return;
+
+box.innerHTML+=`
+<div class="bubble user">
+${esc(question)}
+</div>
+`;
+
+input.value="";
+
+box.innerHTML+=`
+<div id="aiTyping" class="bubble bot">
+Analiz ediyorum…
+</div>
+`;
+
+box.scrollTop=box.scrollHeight;
+
+try{
+
+const {data:sessionData}=await sb.auth.getSession();
+
+const session=sessionData?.session;
+
+if(!session){
+
+document.getElementById("aiTyping")?.remove();
+
+box.innerHTML+=`
+<div class="bubble bot">
+AI kullanmak için giriş yapmalısın.
+</div>
+`;
+
+return;
+
+}
+
+const response=await fetch("/api/ai",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+"Authorization":
+"Bearer "+session.access_token
+},
+body:JSON.stringify({question})
+});
+
+const result=await response.json();
+
+document.getElementById("aiTyping")?.remove();
+
+box.innerHTML+=`
+<div class="bubble bot">
+${esc(
+result.answer||
+result.error||
+"Yanıt alınamadı."
+)}
+</div>
+`;
+
+box.scrollTop=box.scrollHeight;
+
+}catch(error){
+
+console.error("AI ERROR:",error);
+
+document.getElementById("aiTyping")?.remove();
+
+box.innerHTML+=`
+<div class="bubble bot">
+AI bağlantısında bir sorun oluştu.
+</div>
+`;
+
+}
 
 }
 
 
-async function sendAI() {
+/* =========================
+   SAYFA
+========================= */
 
-  const input =
-    document.getElementById("aiInput");
+function switchView(view){
 
-  const box =
-    document.getElementById("chatMessages");
+document.querySelectorAll(".view")
+.forEach(x=>x.classList.remove("active-view"));
 
+document.getElementById(view)
+?.classList.add("active-view");
 
-  if (!input || !box) {
-    return;
-  }
+document.querySelectorAll(".nav")
+.forEach(x=>{
+x.classList.toggle(
+"active",
+x.dataset.view===view
+);
+});
 
+const names={
+dashboard:"Genel Bakış",
+transactions:"Hareketler",
+budget:"Bütçe",
+ai:"AI Koç",
+receipt:"Fiş Tara"
+};
 
-  const question =
-    input.value.trim();
+setText(
+"pageTitle",
+names[view]||"Finans Koçu"
+);
 
+if(window.innerWidth<901){
+document.querySelector(".sidebar")
+?.classList.remove("open");
+}
 
-  if (!question) {
-    return;
-  }
-
-
-  box.innerHTML += `
-    <div class="bubble user">
-      ${esc(question)}
-    </div>
-  `;
-
-
-  input.value = "";
-
-
-  box.innerHTML += `
-    <div
-      id="aiTyping"
-      class="bubble bot"
-    >
-      Analiz ediyorum…
-    </div>
-  `;
+}
 
 
-  box.scrollTop =
-    box.scrollHeight;
+/* =========================
+   MODALLAR
+========================= */
+
+function openModal(){
+document.getElementById("modal")
+?.classList.add("show");
+}
+
+function closeModal(){
+document.getElementById("modal")
+?.classList.remove("show");
+}
+
+function openIncomeModal(){
+document.getElementById("incomeModal")
+?.classList.add("show");
+}
+
+function closeIncomeModal(){
+document.getElementById("incomeModal")
+?.classList.remove("show");
+}
 
 
-  try {
+/* =========================
+   HARCAMA
+========================= */
 
-    const {
-      data: sessionData
-    } = await sb.auth.getSession();
+async function addExpense(){
 
-    const session =
-      sessionData?.session;
+if(!currentUser)
+return notify("Önce giriş yapmalısın.");
 
+const desc=document.getElementById("mDesc")
+?.value?.trim();
 
-    if (!session) {
+const amount=Number(
+document.getElementById("mAmount")?.value
+);
 
-      document
-        .getElementById("aiTyping")
-        ?.remove();
+const category=document.getElementById("mCat")?.value;
+const date=document.getElementById("mDate")?.value;
 
-      box.innerHTML += `
-        <div class="bubble bot">
-          AI kullanmak için giriş yapmalısın.
-        </div>
-      `;
+if(!desc||!amount)
+return notify("Açıklama ve tutar gerekli.");
 
-      return;
+const {data:row,error}=await sb
+.from("transactions")
+.insert({
+user_id:currentUser.id,
+type:"expense",
+description:desc,
+amount,
+category,
+transaction_date:date
+})
+.select()
+.single();
 
-    }
+if(error){
 
+console.error("EXPENSE ERROR:",error);
 
-    const response =
-      await fetch(
-        "/api/ai",
-        {
-          method: "POST",
+return notify(
+"Kaydedilemedi: "+error.message
+);
 
-          headers: {
-            "Content-Type":
-              "application/json",
+}
 
-            "Authorization":
-              "Bearer " +
-              session.access_token
-          },
+data.transactions.unshift({
+id:row.id,
+type:row.type,
+desc:row.description,
+amount:Number(row.amount),
+cat:row.category,
+date:row.transaction_date
+});
 
-          body: JSON.stringify({
-            question
-          })
-        }
-      );
+closeModal();
 
+document.getElementById("mDesc").value="";
+document.getElementById("mAmount").value="";
 
-    const result =
-      await response.json();
+renderAll();
 
+notify("Harcama kaydedildi ✓");
 
-    document
-      .getElementById("aiTyping")
-      ?.remove();
-
-
-    box.innerHTML += `
-      <div class="bubble bot">
-        ${esc(
-          result.answer ||
-          result.error ||
-          "Yanıt alınamadı."
-        )}
-      </div>
-    `;
+}
 
 
-    box.scrollTop =
-      box.scrollHeight;
+/* =========================
+   GELİR
+========================= */
 
+async function addIncome(){
 
-  } catch (error) {
+if(!currentUser)
+return notify("Önce giriş yapmalısın.");
 
-    console.error("AI ERROR:", error);
+const desc=document.getElementById("iDesc")
+?.value?.trim();
 
-    document
-      .getElementById("aiTyping")
-      ?.remove();
+const amount=Number(
+document.getElementById("iAmount")?.value
+);
 
+if(!desc||!amount)
+return notify("Açıklama ve tutar gerekli.");
 
-    box.innerHTML += `
-      <div class="bubble bot">
-        AI bağlantısında bir sorun oluştu.
-      </div>
-    `;
+const date=new Date()
+.toISOString()
+.slice(0,10);
 
-  }
+const {data:row,error}=await sb
+.from("transactions")
+.insert({
+user_id:currentUser.id,
+type:"income",
+description:desc,
+amount,
+category:"Gelir",
+transaction_date:date
+})
+.select()
+.single();
+
+if(error){
+
+console.error("INCOME ERROR:",error);
+
+return notify(
+"Kaydedilemedi: "+error.message
+);
+
+}
+
+data.transactions.unshift({
+id:row.id,
+type:row.type,
+desc:row.description,
+amount:Number(row.amount),
+cat:"Gelir",
+date:row.transaction_date
+});
+
+closeIncomeModal();
+
+document.getElementById("iDesc").value="";
+document.getElementById("iAmount").value="";
+
+renderAll();
+
+notify("Gelir kaydedildi ✓");
 
 }
 
@@ -1265,44 +1037,33 @@ async function sendAI() {
    FİŞ
 ========================= */
 
-function receiptSelected(element) {
+function receiptSelected(element){
 
-  if (!element.files?.[0]) {
-    return;
-  }
+if(!element.files?.[0])return;
 
+const file=element.files[0];
 
-  const file =
-    element.files[0];
+const result=document.getElementById("receiptResult");
 
+if(result){
 
-  const result =
-    document.getElementById(
-      "receiptResult"
-    );
+result.innerHTML=`
+<div style="
+margin-top:18px;
+padding:12px;
+background:#f5f3ff;
+border-radius:10px;
+font-size:12px;
+color:#5148e8
+">
+✓ ${esc(file.name)} seçildi.
+OCR bağlantısı için hazır.
+</div>
+`;
 
+}
 
-  if (result) {
-
-    result.innerHTML = `
-      <div style="
-        margin-top:18px;
-        padding:12px;
-        background:#f5f3ff;
-        border-radius:10px;
-        font-size:12px;
-        color:#5148e8
-      ">
-        ✓ ${esc(file.name)}
-        seçildi.
-        OCR bağlantısı için hazır.
-      </div>
-    `;
-
-  }
-
-
-  notify("Fiş görseli seçildi.");
+notify("Fiş görseli seçildi.");
 
 }
 
@@ -1311,42 +1072,33 @@ function receiptSelected(element) {
    DİĞER
 ========================= */
 
-function showPro() {
-  notify(
-    "Pro ödeme ekranı sonraki entegrasyon adımında aktif edilecek."
-  );
-}
+function showPro(){
 
-
-function notify(message) {
-
-  const toast =
-    document.getElementById("toast");
-
-  if (!toast) {
-    return;
-  }
-
-
-  toast.textContent = message;
-
-  toast.classList.add("show");
-
-
-  setTimeout(() => {
-
-    toast.classList.remove("show");
-
-  }, 3000);
+notify(
+"Pro ödeme ekranı sonraki entegrasyon adımında aktif edilecek."
+);
 
 }
 
+function notify(message){
 
-function toggleSide() {
+const toast=document.getElementById("toast");
 
-  document
-    .querySelector(".sidebar")
-    ?.classList.toggle("open");
+if(!toast)return;
+
+toast.textContent=message;
+toast.classList.add("show");
+
+setTimeout(()=>{
+toast.classList.remove("show");
+},3000);
+
+}
+
+function toggleSide(){
+
+document.querySelector(".sidebar")
+?.classList.toggle("open");
 
 }
 
@@ -1355,28 +1107,26 @@ function toggleSide() {
    ÇIKIŞ
 ========================= */
 
-async function signOut() {
+async function signOut(){
 
-  const {
-    error
-  } = await sb.auth.signOut();
+const {error}=await sb.auth.signOut();
 
+if(error){
 
-  if (error) {
+console.error(
+"SIGN OUT ERROR:",
+error
+);
 
-    console.error(
-      "SIGN OUT ERROR:",
-      error
-    );
+return notify("Çıkış yapılamadı.");
 
-    return notify(
-      "Çıkış yapılamadı."
-    );
+}
 
-  }
+currentUser=null;
 
+showAuth();
 
-  notify("Çıkış yapıldı.");
+notify("Çıkış yapıldı.");
 
 }
 
@@ -1385,321 +1135,317 @@ async function signOut() {
    GİRİŞ / KAYIT
 ========================= */
 
-async function authSubmit() {
+async function authSubmit(){
 
-  const email =
-    document.getElementById(
-      "authEmail"
-    )?.value
-      ?.trim();
+if(authBusy)return;
 
-  const password =
-    document.getElementById(
-      "authPassword"
-    )?.value || "";
+const email=document.getElementById("authEmail")
+?.value?.trim();
 
-  const name =
-    document.getElementById(
-      "authName"
-    )?.value
-      ?.trim() || "";
+const password=document.getElementById("authPassword")
+?.value||"";
 
-  const mode =
-    document.getElementById(
-      "authMode"
-    )?.value || "login";
+const name=document.getElementById("authName")
+?.value?.trim()||"";
 
+const mode=document.getElementById("authMode")
+?.value||"login";
 
-  if (!email) {
-    return notify(
-      "E-posta adresini gir."
-    );
-  }
+const button=document.getElementById("authSubmit");
 
+clearAuthMessage();
 
-  if (!password) {
-    return notify(
-      "Şifreni gir."
-    );
-  }
+if(!email){
 
+authMessage("E-posta adresini gir.");
 
-  if (password.length < 6) {
-    return notify(
-      "Şifre en az 6 karakter olmalı."
-    );
-  }
+return notify(
+"E-posta adresini gir."
+);
 
+}
 
-  const button =
-    document.getElementById(
-      "authSubmit"
-    );
+if(!password){
 
+authMessage("Şifreni gir.");
 
-  const originalText =
-    button?.textContent ||
-    "Giriş Yap";
+return notify(
+"Şifreni gir."
+);
 
+}
 
-  if (button) {
+if(password.length<6){
 
-    button.disabled = true;
+authMessage(
+"Şifre en az 6 karakter olmalı."
+);
 
-    button.textContent =
-      mode === "login"
-        ? "Giriş yapılıyor..."
-        : "Hesap oluşturuluyor...";
+return notify(
+"Şifre en az 6 karakter olmalı."
+);
 
-  }
+}
 
+authBusy=true;
 
-  try {
+const oldText=button?.textContent||
+(mode==="login"?"Giriş Yap":"Kayıt Ol");
 
-    let result;
+if(button){
 
+button.disabled=true;
 
-    /* ===== GİRİŞ ===== */
+button.textContent=
+mode==="login"
+?"Giriş yapılıyor..."
+:"Hesap oluşturuluyor...";
 
-    if (mode === "login") {
+}
 
-      result =
-        await sb.auth.signInWithPassword({
-          email,
-          password
-        });
+try{
 
-    }
+let result;
 
 
-    /* ===== KAYIT ===== */
+/* GİRİŞ */
 
-    else {
+if(mode==="login"){
 
-      result =
-        await sb.auth.signUp({
+result=await sb.auth.signInWithPassword({
+email,
+password
+});
 
-          email,
+}
 
-          password,
 
-          options: {
-            data: {
-              full_name:
-                name ||
-                email.split("@")[0]
-            }
-          }
+/* KAYIT */
 
-        });
+else{
 
-    }
+result=await sb.auth.signUp({
 
+email,
 
-    console.log(
-      "SUPABASE AUTH RESULT:",
-      result
-    );
+password,
 
+options:{
+data:{
+full_name:
+name||
+email.split("@")[0]
+}
+}
 
-    /* ===== HATA ===== */
+});
 
-    if (result.error) {
+}
 
-      console.error(
-        "SUPABASE AUTH ERROR:",
-        result.error
-      );
+console.log(
+"SUPABASE AUTH RESULT:",
+result
+);
 
 
-      notify(
-        result.error.message ||
-        "Kimlik doğrulama hatası."
-      );
+/* HATA */
 
+if(result.error){
 
-      return;
+console.error(
+"SUPABASE AUTH ERROR:",
+result.error
+);
 
-    }
+authMessage(
+result.error.message||
+"Kimlik doğrulama hatası."
+);
 
+notify(
+result.error.message||
+"Kimlik doğrulama hatası."
+);
 
-    const user =
-      result.data?.user;
+return;
 
-    const session =
-      result.data?.session;
+}
 
 
-    console.log(
-      "SUPABASE USER:",
-      user
-    );
+/*
+  Supabase bazı ayarlarda signUp sonrası
+  session döndürmeyebilir.
+  Önce mevcut session'ı kontrol ediyoruz.
+*/
 
-    console.log(
-      "SUPABASE SESSION:",
-      session
-    );
+let user=result.data?.user||null;
+let session=result.data?.session||null;
 
+if(!session){
 
-    /* ===== BAŞARILI ===== */
+const check=await sb.auth.getSession();
 
-    if (user && session) {
+if(check.error){
 
-      currentUser = user;
+console.error(
+"SESSION CHECK ERROR:",
+check.error
+);
 
+}else{
 
-      try {
+session=check.data?.session||null;
 
-        await loadData();
+user=session?.user||user;
 
-      } catch (error) {
+}
 
-        console.error(
-          "LOAD DATA AFTER AUTH ERROR:",
-          error
-        );
+}
 
-      }
+console.log("USER:",user);
+console.log("SESSION:",session);
 
 
-      showApp();
+/* SESSION VAR */
 
-      notify(
-        mode === "login"
-          ? "Giriş başarılı ✓"
-          : "Hesap oluşturuldu ✓"
-      );
+if(session?.user){
 
+currentUser=session.user;
 
-      return;
+try{
 
-    }
+await loadData();
 
+}catch(error){
 
-    /* ===== KAYIT VAR SESSION YOK ===== */
+console.error(
+"LOAD DATA AFTER AUTH ERROR:",
+error
+);
 
-    if (
-      mode === "signup" &&
-      user &&
-      !session
-    ) {
+}
 
-      notify(
-        "Hesap oluşturuldu. Şimdi giriş yapabilirsin."
-      );
+showApp();
 
+const message=
+mode==="login"
+?"Giriş başarılı ✓"
+:"Hesap oluşturuldu ve giriş yapıldı ✓";
 
-      return;
+notify(message);
 
-    }
+return;
 
+}
 
-    /* ===== SESSION YOK ===== */
 
-    notify(
-      "İşlem tamamlandı fakat oturum oluşturulamadı."
-    );
+/*
+  Buraya geldiyse hesap oluştu ama
+  Supabase session vermedi.
+*/
 
+if(mode==="signup"&&user){
 
-  } catch (error) {
+authMessage(
+"Hesap oluşturuldu ancak oturum açılamadı. Eğer e-posta doğrulaması açıksa önce e-postandaki doğrulama bağlantısına tıklaman gerekiyor."
+);
 
-    console.error(
-      "AUTH EXCEPTION:",
-      error
-    );
+notify(
+"Hesap oluşturuldu fakat oturum açılamadı."
+);
 
+return;
 
-    notify(
-      "Hata: " +
-      (error?.message ||
-        "Bilinmeyen hata")
-    );
+}
 
 
-  } finally {
+/* SON ÇARE */
 
-    if (button) {
+authMessage(
+"Oturum oluşturulamadı. Supabase Authentication ayarlarını kontrol et."
+);
 
-      button.disabled = false;
+notify(
+"Oturum oluşturulamadı."
+);
 
-      button.textContent =
-        originalText;
+}catch(error){
 
-    }
+console.error(
+"AUTH EXCEPTION:",
+error
+);
 
-  }
+const message=
+"Hata: "+
+(error?.message||"Bilinmeyen hata");
+
+authMessage(message);
+
+notify(message);
+
+}finally{
+
+authBusy=false;
+
+if(button){
+
+button.disabled=false;
+button.textContent=oldText;
+
+}
+
+}
 
 }
 
 
 /* =========================
-   GİRİŞ / KAYIT MODU
+   KAYIT / GİRİŞ DEĞİŞTİR
 ========================= */
 
-function toggleAuthMode() {
+function toggleAuthMode(){
 
-  const mode =
-    document.getElementById(
-      "authMode"
-    );
+const mode=document.getElementById("authMode");
 
-  if (!mode) {
-    return;
-  }
+if(!mode)return;
 
+clearAuthMessage();
 
-  const isLogin =
-    mode.value === "login";
+const isLogin=mode.value==="login";
 
+mode.value=isLogin?"signup":"login";
 
-  mode.value =
-    isLogin
-      ? "signup"
-      : "login";
+const signup=mode.value==="signup";
 
+setText(
+"authTitle",
+signup
+?"Hesap oluştur"
+:"Finans Koçu'na giriş yap"
+);
 
-  const newSignup =
-    mode.value === "signup";
+const nameWrap=
+document.getElementById("authNameWrap");
 
+if(nameWrap){
 
-  setText(
-    "authTitle",
-    newSignup
-      ? "Hesap oluştur"
-      : "Finans Koçu'na giriş yap"
-  );
+nameWrap.style.display=
+signup?"block":"none";
 
+}
 
-  const nameWrap =
-    document.getElementById(
-      "authNameWrap"
-    );
+setText(
+"authSubmit",
+signup?"Kayıt Ol":"Giriş Yap"
+);
 
-
-  if (nameWrap) {
-
-    nameWrap.style.display =
-      newSignup
-        ? "block"
-        : "none";
-
-  }
-
-
-  setText(
-    "authSubmit",
-    newSignup
-      ? "Kayıt Ol"
-      : "Giriş Yap"
-  );
-
-
-  setText(
-    "authToggle",
-    newSignup
-      ? "Zaten hesabın var mı? Giriş yap"
-      : "Hesabın yok mu? Kayıt ol"
-  );
+setText(
+"authToggle",
+signup
+?"Zaten hesabın var mı? Giriş yap"
+:"Hesabın yok mu? Kayıt ol"
+);
 
 }
 
